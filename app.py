@@ -12,6 +12,7 @@ import schedule
 import os
 import tempfile
 import shutil
+import uuid
 
 # Loglama ayarları
 logger = logging.getLogger()
@@ -35,8 +36,10 @@ urls = [
 def scrape_trends():
     trends_data = {}
     
-    # Geçici bir kullanıcı veri dizini oluştur
-    temp_dir = tempfile.mkdtemp()
+    # Benzersiz bir geçici dizin oluştur
+    unique_id = str(uuid.uuid4())  # Her çalıştırmada benzersiz bir ID
+    temp_dir = os.path.join(tempfile.gettempdir(), f"chrome_{unique_id}")
+    os.makedirs(temp_dir, exist_ok=True)
     
     # Selenium ayarları
     chrome_options = Options()
@@ -47,10 +50,18 @@ def scrape_trends():
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--window-size=1920,1080')
     
+    driver = None
     try:
+        logging.info(f"Chrome başlatılıyor, user-data-dir: {temp_dir}")
         driver = webdriver.Chrome(options=chrome_options)
     except Exception as e:
         logging.error(f"Chrome başlatılamadı: {str(e)}")
+        # Geçici dizini temizle
+        try:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            logging.info(f"Geçici dizin temizlendi: {temp_dir}")
+        except Exception as e:
+            logging.error(f"Geçici dizin temizlenemedi: {str(e)}")
         return trends_data
     
     for url in urls:
@@ -78,7 +89,6 @@ def scrape_trends():
             
             if not trend_containers:
                 logging.warning(f"{country} için .list-container bulunamadı. HTML yapısını kontrol edin.")
-                # Yedek seçici: trend-name içeren herhangi bir <a>
                 trend_elements = soup.select('a.trend-link')
                 for trend in trend_elements:
                     trends_data[country].append({
@@ -107,11 +117,14 @@ def scrape_trends():
         
         time.sleep(2)
     
-    driver.quit()
+    # Driver'ı kapat
+    if driver:
+        driver.quit()
+        logging.info("Selenium driver kapatıldı.")
     
     # Geçici dizini temizle
     try:
-        shutil.rmtree(temp_dir)
+        shutil.rmtree(temp_dir, ignore_errors=True)
         logging.info(f"Geçici dizin temizlendi: {temp_dir}")
     except Exception as e:
         logging.error(f"Geçici dizin temizlenemedi: {str(e)}")
