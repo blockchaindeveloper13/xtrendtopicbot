@@ -4,17 +4,16 @@ import logging
 import json
 from datetime import datetime
 import time
+import schedule
 
 # Loglama ayarları: Hem dosyaya hem konsola yaz
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Dosya handler'ı
 file_handler = logging.FileHandler('trend_scraper.log')
 file_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
 logger.addHandler(file_handler)
 
-# Konsol handler'ı (Heroku logs için)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
 logger.addHandler(console_handler)
@@ -39,7 +38,7 @@ def scrape_trends():
         
         try:
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
             soup = BeautifulSoup(response.text, 'html.parser')
@@ -67,12 +66,12 @@ def scrape_trends():
 # Ana fonksiyon
 def main():
     logging.info("Trendler çekiliyor...")
-    trends = scrape_trends()
+    schedule.every(90).minutes.do(scrape_trends)
     
-    for country, trends_list in trends.items():
-        logging.info(f"{country} için trendler:")
-        for trend in trends_list:
-            logging.info(f"  {trend['trend']} - {trend['tweet_count']}")
+    while True:
+        schedule.run_pending()
+        logging.info("Zamanlayıcı çalışıyor, bir sonraki çekim 90 dakika sonra.")
+        time.sleep(60)
 
 if __name__ == "__main__":
     main()
