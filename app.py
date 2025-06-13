@@ -1,5 +1,8 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import logging
 import json
@@ -8,6 +11,7 @@ import time
 import schedule
 import os
 import tempfile
+import shutil
 
 # Loglama ayarları
 logger = logging.getLogger()
@@ -56,7 +60,11 @@ def scrape_trends():
         try:
             logging.info(f"{country} için istek gönderiliyor: {url}")
             driver.get(url)
-            time.sleep(5)  # JavaScript yüklenmesini bekle
+            
+            # Trend listesinin yüklenmesini bekle
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, '.list-container'))
+            )
             html = driver.page_source
             
             # Ham HTML'yi kaydet
@@ -66,27 +74,30 @@ def scrape_trends():
             logging.info(f"{country} için ham HTML kaydedildi: {html_filename}")
             
             soup = BeautifulSoup(html, 'html.parser')
-            trend_cards = soup.find_all('div', class_='trend-card')  # Tahmini
+            trend_containers = soup.select('.list-container')
             
-            if not trend_cards:
-                logging.warning(f"{country} için trend-card bulunamadı. HTML yapısını kontrol edin.")
-                trend_elements = soup.find_all('a', href=True)
+            if not trend_containers:
+                logging.warning(f"{country} için .list-container bulunamadı. HTML yapısını kontrol edin.")
+                # Yedek seçici: trend-name içeren herhangi bir <a>
+                trend_elements = soup.select('a.trend-link')
                 for trend in trend_elements:
-                    if '#' in trend.text or trend.text.strip() in ['Netanyahu', 'Israel']:
-                        trends_data[country].append({
-                            'trend': trend.text.strip(),
-                            'tweet_count': 'N/A',
-                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        })
+                    trends_data[country].append({
+                        'trend': trend.text.strip(),
+                        'tweet_count': 'N/A',
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    })
             else:
-                for card in trend_cards:
-                    trend_name = card.find('a', class_='trend-link')
-                    tweet_count = card.find('span', class_='trend-tweet-count')
-                    if trend_name:
+                for container in trend_containers:
+                    timestamp = container.select_one('h3.title')['data-timestamp'] if container.select_one('h3.title') else datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    trend_list = container.select('ol.trend-card__list li')
+                    
+                    for trend in trend_list:
+                        trend_name = trend.select_one('.trend-name a')
+                        tweet_count = trend.select_one('.tweet-count')
                         trends_data[country].append({
-                            'trend': trend_name.text.strip(),
-                            'tweet_count': tweet_count.text.strip() if tweet_count else 'N/A',
-                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            'trend': trend_name.text.strip() if trend_name else 'N/A',
+                            'tweet_count': tweet_count['data-count'] if tweet_count and tweet_count.get('data-count') else 'N/A',
+                            'timestamp': timestamp
                         })
             
             logging.info(f"{country} için trendler: {json.dumps(trends_data[country], ensure_ascii=False)}")
@@ -97,6 +108,14 @@ def scrape_trends():
         time.sleep(2)
     
     driver.quit()
+    
+    # Geçici dizini temizle
+    try:
+        shutil.rmtree(temp_dir)
+        logging.info(f"Geçici dizin temizlendi: {temp_dir}")
+    except Exception as e:
+        logging.error(f"Geçici dizin temizlenemedi: {str(e)}")
+    
     return trends_data
 
 def main():
