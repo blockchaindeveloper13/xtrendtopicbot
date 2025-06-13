@@ -7,7 +7,9 @@ from datetime import datetime
 import time
 import schedule
 import os
+import tempfile
 
+# Loglama ayarları
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler('trend_scraper.log')
@@ -28,11 +30,24 @@ urls = [
 
 def scrape_trends():
     trends_data = {}
+    
+    # Geçici bir kullanıcı veri dizini oluştur
+    temp_dir = tempfile.mkdtemp()
+    
+    # Selenium ayarları
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(options=chrome_options)
+    chrome_options.add_argument(f'--user-data-dir={temp_dir}')
+    chrome_options.add_argument('--disable-gpu')
+    chrome_options.add_argument('--window-size=1920,1080')
+    
+    try:
+        driver = webdriver.Chrome(options=chrome_options)
+    except Exception as e:
+        logging.error(f"Chrome başlatılamadı: {str(e)}")
+        return trends_data
     
     for url in urls:
         country = url.split('/')[-2] if 'dubai' not in url else 'dubai'
