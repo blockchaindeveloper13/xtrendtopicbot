@@ -37,13 +37,25 @@ def scrape_trends():
         trends_data[country] = []
         
         try:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            logging.info(f"{country} için istek gönderiliyor: {url}")
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
+            # Ham HTML'yi logla (hata ayıklama için)
+            logging.info(f"{country} için ham HTML (ilk 1000 karakter): {response.text[:1000]}")
+            
             soup = BeautifulSoup(response.text, 'html.parser')
-            trend_elements = soup.find_all('div', class_='trend-name')  # HTML yapısına göre güncelle
-            tweet_counts = soup.find_all('span', class_='tweet-count')  # HTML yapısına göre güncelle
+            
+            # Trendleri bul (HTML yapısına göre güncellenmeli)
+            # Örnek: <div class="trend-card"><a class="trend-name">#WtcFinal2025</a><span class="tweet-count">17K</span></div>
+            trend_elements = soup.find_all('a', class_='trend-name')  # Tahmini yeni seçici
+            tweet_counts = soup.find_all('span', class_='tweet-count')  # Tahmini yeni seçici
+            
+            if not trend_elements:
+                logging.warning(f"{country} için trend bulunamadı. HTML yapısını kontrol edin.")
             
             for trend, count in zip(trend_elements, tweet_counts):
                 trend_name = trend.text.strip()
@@ -56,8 +68,10 @@ def scrape_trends():
             
             logging.info(f"{country} için trendler: {json.dumps(trends_data[country], ensure_ascii=False)}")
             
+        except requests.exceptions.RequestException as e:
+            logging.error(f"{country} için istek hatası: {str(e)}")
         except Exception as e:
-            logging.error(f"{country} için hata: {str(e)}")
+            logging.error(f"{country} için genel hata: {str(e)}")
         
         time.sleep(2)
     
@@ -66,6 +80,7 @@ def scrape_trends():
 # Ana fonksiyon
 def main():
     logging.info("Trendler çekiliyor...")
+    scrape_trends()  # İlk çalıştırmada hemen çek
     schedule.every(90).minutes.do(scrape_trends)
     
     while True:
