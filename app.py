@@ -134,6 +134,26 @@ def get_trends():
                 step = log_step(step, "Driver başarıyla kapatıldı")
             except Exception as e:
                 logger.error(f"Driver kapatma hatası: {str(e)}")
+@app.route('/test')
+def test_selenium():
+    try:
+        driver = create_driver()
+        driver.get("https://www.google.com")
+        title = driver.title
+        driver.quit()
+        return jsonify({
+            "status": "success",
+            "title": title,
+            "message": "Selenium başarıyla çalıştı"
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "chrome_bin": os.environ.get("GOOGLE_CHROME_BIN"),
+            "driver_path": os.environ.get("CHROMEDRIVER_PATH")
+        })
+
 
 @app.route('/')
 def home():
