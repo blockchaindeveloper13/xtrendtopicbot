@@ -1,67 +1,68 @@
 import os
-import requests
 from flask import Flask, jsonify
-from bs4 import BeautifulSoup
 import logging
-from fake_useragent import UserAgent
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
-ua = UserAgent()
+
+def init_driver():
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1920x1080")
+    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
+    return webdriver.Chrome(
+        executable_path=os.environ.get("CHROMEDRIVER_PATH"),
+        options=chrome_options
+    )
 
 def get_trends():
+    driver = None
     try:
-        # Dinamik User-Agent ve özel header'lar
-        headers = {
-            "User-Agent": ua.random,
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.google.com/",
-            "DNT": "1"
-        }
-
-        # Önce sayfanın statik halini çek
-        response = requests.get(
-            "https://trends24.in/",
-            headers=headers,
-            timeout=20
-        )
-        response.raise_for_status()
-
-        # JavaScript render gerekiyorsa alternatif
-        if "Checking your browser" in response.text:
-            raise Exception("Cloudflare challenge detected")
-
-        soup = BeautifulSoup(response.text, 'html.parser')
+        driver = init_driver()
+        driver.get("https://trends24.in/")
         
-        # GÜNCEL 2025 SELECTORLERİ
+        # Bekleme stratejisi
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "div.trend-card"))
+        )
+        
         trends = []
-        for container in soup.select('div.trend-card'):
-            location = container.find('h4').get_text(strip=True) if container.find('h4') else "Global"
+        cards = driver.find_elements(By.CSS_SELECTOR, "div.trend-card")
+        
+        for card in cards:
+            location = card.find_element(By.CSS_SELECTOR, "h4").text
+            items = card.find_elements(By.CSS_SELECTOR, "li")
             
-            for item in container.select('li'):
+            for item in items:
                 try:
-                    name = item.find('a').get_text(strip=True)
-                    count = item.select_one('span.tweet-count').get_text(strip=True) if item.select_one('span.tweet-count') else "N/A"
-                    url = item.find('a')['href']
-                    
-                    trends.append({
-                        "location": location,
-                        "name": name,
-                        "count": count,
-                        "url": f"https://twitter.com{url}" if url.startswith('/') else url
-                    })
-                except Exception as e:
+                    name = item.find_element(By.CSS_SELECTOR, "a").text
+                    count = item.find_element(By.CSS_SELECTOR, "span.tweet-count").text
+                    trends.append({"location": location, "name": name, "count": count})
+                except:
                     continue
-
-        return {"status": "success", "trends": trends} if trends else {"status": "empty", "message": "No trends found"}
-
+        
+        return {"status": "success", "trends": trends[:20]}  # İlk 20 trend
+    
     except Exception as e:
+        app.logger.error(f"Hata: {str(e)}")
         return {"status": "error", "message": str(e)}
+    
+    finally:
+        if driver:
+            driver.quit()
 
 @app.route('/')
 def home():
-    return jsonify({"endpoints": ["/trends"]})
+    return jsonify({"message": "Çalışıyor!", "endpoints": ["/trends"]})
 
 @app.route('/trends')
 def trends():
