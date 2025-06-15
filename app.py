@@ -6,7 +6,7 @@ import requests
 import json
 import logging
 from io import BytesIO
-from tweepy.errors import TweepyException  # TweepError yerine
+from tweepy.errors import TweepyException, Unauthorized  # Spesifik hata için
 
 # Logging ayarı
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -153,7 +153,7 @@ while True:
     # Tüm hesaplar için işlem
     for acc_idx, account in enumerate(accounts):
         if not all([account["api_key"], account["api_secret"], account["access_token"], account["access_token_secret"], account["bearer_token"]]):
-            logger.error(f"Missing API credentials for account {acc_idx}")
+            logger.error(f"Missing API credentials for account {acc_idx}: {account}")
             continue
         if daily_counts[acc_idx] >= 15:  # Günlük limit
             logger.warning(f"Daily limit reached for account {acc_idx}")
@@ -163,8 +163,13 @@ while True:
             auth = tweepy.OAuthHandler(account["api_key"], account["api_secret"])
             auth.set_access_token(account["access_token"], account["access_token_secret"])
             api = tweepy.API(auth, wait_on_rate_limit=True)
-        except Exception as e:
-            logger.error(f"Authentication failed for account {acc_idx}: {str(e)}")
+            user = api.verify_credentials()
+            logger.info(f"Authentication successful for account {acc_idx}, user: {user.screen_name}")
+        except Unauthorized as e:
+            logger.error(f"Authentication failed for account {acc_idx}: {str(e)}, credentials: {account}")
+            continue
+        except TweepyException as e:
+            logger.error(f"API error for account {acc_idx}: {str(e)}")
             continue
 
         if new_post_found:  # Yeni gönderiye yorum
