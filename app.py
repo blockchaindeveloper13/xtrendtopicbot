@@ -55,11 +55,14 @@ accounts = [
 grok_api_key = os.environ["GROK_API_KEY"]
 grok_client = XAIClient(api_key=grok_api_key)
 
-# GitHub’daki resimler (repo ve dosya adlarını güncelle)
+# GitHub’daki resimler
 image_urls = [
-    "https://raw.githubusercontent.com/kullanıcı-adın/solium-coin-bot/main/images/solium_promo1.png",
-    "https://raw.githubusercontent.com/kullanıcı-adın/solium-coin-bot/main/images/solium_promo2.png",
-    "https://raw.githubusercontent.com/kullanıcı-adın/solium-coin-bot/main/images/solium_promo3.png"
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image.jpg",
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image%20(2).jpg",
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image%20(3).jpg",
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image%20(4).jpg",
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image%20(5).jpg",
+    "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image%20(6).jpg"
 ]
 
 # Hedef hesaplar
