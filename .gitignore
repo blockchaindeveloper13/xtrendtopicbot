@@ -1,26 +1,4 @@
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-selfcheck.json
-
-# Log dosyaları
-trend_scraper.log
-
-# Veritabanı dosyaları (gelecekte eklersen)
-*.db
-*.sqlite3
-
-# Ortam değişkenleri
 .env
-*.local
-
-# IDE dosyaları
-.idea/
-.vscode/
+*.pyc
+__pycache__/
+*.log
