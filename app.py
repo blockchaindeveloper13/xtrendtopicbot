@@ -1,71 +1,87 @@
+import tweepy
+import random
+import time
 import os
 import requests
-from flask import Flask, jsonify
-from bs4 import BeautifulSoup
-import logging
-from fake_useragent import UserAgent
+from xai_sdk import XAIClient  # Grok API için, varsayım
 
-app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
+# Config Vars’tan anahtarları çek
+accounts = [
+    {
+        "api_key": os.environ["ACCOUNT1_API_KEY"],
+        "api_secret": os.environ["ACCOUNT1_API_SECRET"],
+        "access_token": os.environ["ACCOUNT1_ACCESS_TOKEN"],
+        "access_token_secret": os.environ["ACCOUNT1_ACCESS_TOKEN_SECRET"],
+        "bearer_token": os.environ["ACCOUNT1_BEARER_TOKEN"]
+    },
+    {
+        "api_key": os.environ["ACCOUNT2_API_KEY"],
+        "api_secret": os.environ["ACCOUNT2_API_SECRET"],
+        "access_token": os.environ["ACCOUNT2_ACCESS_TOKEN"],
+        "access_token_secret": os.environ["ACCOUNT2_ACCESS_TOKEN_SECRET"],
+        "bearer_token": os.environ["ACCOUNT2_BEARER_TOKEN"]
+    },
+    {
+        "api_key": os.environ["ACCOUNT3_API_KEY"],
+        "api_secret": os.environ["ACCOUNT3_API_SECRET"],
+        "access_token": os.environ["ACCOUNT3_ACCESS_TOKEN"],
+        "access_token_secret": os.environ["ACCOUNT3_ACCESS_TOKEN_SECRET"],
+        "bearer_token": os.environ["ACCOUNT3_BEARER_TOKEN"]
+    }
+]
 
-# Fake UserAgent ayarları
-ua = UserAgent()
+# Grok API anahtarı
+grok_api_key = os.environ["GROK_API_KEY"]
+grok_client = XAIClient(api_key=grok_api_key)
 
-def scrape_x_trends():
+# Grok ile tweet üret
+def generate_tweet():
+    prompt = "Solium Coin için 280 karakterden kısa, esprili ve dikkat çekici bir tanıtım tweet’i yaz. Kripto borsalarına hitap etsin, #SoliumCoin ve #Crypto etiketlerini kullansın. Samimi bir ton olsun."
+    response = grok_client.generate_text(prompt=prompt, max_length=280)
+    return response.text
+
+# Borsaların son tweet ID’lerini çek
+def get_post_ids(username, bearer_token):
+    headers = {"Authorization": f"Bearer {bearer_token}"}
+    url = f"https://api.x.com/2/users/by/username/{username}/tweets?max_results=10"
     try:
-        headers = {
-            "User-Agent": ua.random,
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": "https://www.google.com/",
-            "DNT": "1"
-        }
-
-        # 1. Önce Twitter'ın mobil versiyonunu çekiyoruz (daha az bot koruması var)
-        response = requests.get(
-            "https://x.com/explore/tabs/trending",
-            headers=headers,
-            timeout=15
-        )
-        
-        # 2. Eğer redirect olursa (login isteyebilir)
-        if "login" in response.url:
-            raise Exception("Login gerekiyor, cookie eklemelisiniz")
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 3. Güncel HTML yapısı (Haziran 2025)
-        trends = []
-        trend_items = soup.select('div[data-testid="trend"]')  # Trend konteynırları
-        
-        for item in trend_items:
-            try:
-                name = item.select_one('span[dir="ltr"]').text.strip()
-                tweet_count = item.select_one('div[role="presentation"]').text.strip()
-                trends.append({
-                    "name": name,
-                    "tweet_count": tweet_count
-                })
-            except Exception as e:
-                continue
-
-        return trends if trends else []
-
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return [post["id"] for post in response.json().get("data", [])]
+        else:
+            print(f"Okuma hatası: {response.status_code} - {response.text}")
+            return []
     except Exception as e:
-        app.logger.error(f"Scraping hatası: {str(e)}")
+        print(f"Okuma hatası: {e}")
         return []
 
-@app.route('/')
-def home():
-    return jsonify({"message": "Çalışıyor!", "endpoint": "/trends"})
+# Hedef borsalar
+target_borzas = ["Binance", "KuCoinCom", "Coinbase"]
 
-@app.route('/trends')
-def get_trends():
-    trends = scrape_x_trends()
-    return jsonify({
-        "status": "success" if trends else "error",
-        "count": len(trends),
-        "trends": trends
-    })
+# Ana döngü
+for account in accounts:
+    auth = tweepy.OAuthHandler(account["api_key"], account["api_secret"])
+    auth.set_access_token(account["access_token"], account["access_token_secret"])
+    api = tweepy.API(auth, wait_on_rate_limit=True)
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Bağımsız tweet (günde max 16, ayda 500 limit için)
+    for _ in range(5):  # Günde 5 bağımsız tweet
+        tweet = generate_tweet()
+        try:
+            api.update_status(tweet)
+            print(f"Hesap {account['access_token'][:10]}: {tweet}")
+        except tweepy.TweepError as e:
+            print(f"Tweet hatası: {e}")
+        time.sleep(3600)  # 1 saat bekle
+
+    # Borsalara yorum
+    for borsa in target_borzas:
+        post_ids = get_post_ids(borsa, account["bearer_token"])
+        for post_id in post_ids[:2]:  # Her borsadan 2 gönderiye yorum
+            comment = f"@{borsa} {generate_tweet()}"
+            try:
+                api.update_status(comment, in_reply_to_status_id=post_id)
+                print(f"Yorum: {comment}")
+            except tweepy.TweepError as e:
+                print(f"Yorum hatası: {e}")
+            time.sleep(3600)  # 1 saat bekle
