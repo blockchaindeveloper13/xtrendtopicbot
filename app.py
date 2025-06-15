@@ -4,8 +4,13 @@ import time
 import os
 import requests
 import json
+import logging
 from xai_sdk import XAIClient  # Grok API için, gerçek kütüphaneyi ekle
 from io import BytesIO
+
+# Logging ayarı
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Hashtag havuzu
 HASHTAG_POOL = [
@@ -88,10 +93,10 @@ def save_last_ids(last_ids):
 # Tweet üret
 def generate_tweet(target=None):
     base_prompt = (
-        "Write a 170-char tweet in English for Solium Coin. Highlight the extended presale, BNB participation via Binance/KuCoin Web3 Wallet or MetaMask. "
+        "Write a 160-char tweet in English for Solium Coin. Highlight the extended presale, BNB participation via Binance/KuCoin Web3 Wallet or MetaMask. "
         "Emphasize Dubai-inspired, BSC-Solana bridged, #SoliumArmy-led Web3 project. "
         "Avoid wealth promises or investment guarantees to comply with SEC’s Howey Test. "
-        "Include https://bit.ly/3HHUPTQ naturally."
+        "Include https://bit.ly/3HHUPTQ and mention @soliumcoin naturally."
     )
     if target in ["Binance", "KuCoinCom", "BitMartExchange", "MEXC_Official", "Gate_io"]:
         prompt = f"{base_prompt} Call out {target} for listing."
@@ -99,14 +104,14 @@ def generate_tweet(target=None):
         prompt = f"{base_prompt} Appeal to {target}’s community."
     else:
         prompt = base_prompt
-    response = grok_client.generate_text(prompt=prompt, max_length=170)
+    response = grok_client.generate_text(prompt=prompt, max_length=160)
     # Rastgele 3 hashtag ekle
     hashtags = random.sample(HASHTAG_POOL, 3)
-    tweet = f"{response.text} https://bit.ly/3HHUPTQ {' '.join(hashtags)}"
+    tweet = f"{response.text} https://bit.ly/3HHUPTQ @soliumcoin {' '.join(hashtags)}"
     if len(tweet) > 280:
-        # Kısalt
-        text_part = response.text[:280 - len(" https://bit.ly/3HHUPTQ " + " ".join(hashtags))]
-        tweet = f"{text_part} https://bit.ly/3HHUPTQ {' '.join(hashtags)}"
+        # Kısalt, @soliumcoin ve linki koru
+        text_part = response.text[:280 - len(" https://bit.ly/3HHUPTQ @soliumcoin " + " ".join(hashtags))]
+        tweet = f"{text_part} https://bit.ly/3HHUPTQ @soliumcoin {' '.join(hashtags)}"
     return tweet
 
 # Resmi GitHub’dan çek
@@ -127,10 +132,10 @@ def get_post_ids(username, bearer_token):
             posts = response.json().get("data", [])
             return [post["id"] for post in posts]
         else:
-            print(f"Read error: {response.status_code} - {response.text}")
+            logger.error(f"Read error: {response.status_code} - {response.text}")
             return []
     except Exception as e:
-        print(f"Read error: {e}")
+        logger.error(f"Read error: {e}")
         return []
 
 # Ana döngü
@@ -143,6 +148,7 @@ while True:
     if time.time() - last_reset >= 86400:
         daily_counts = {i: 0 for i in range(3)}
         last_reset = time.time()
+        logger.info("Daily limit reset for all accounts")
 
     new_post_found = False
     target_post_id = None
@@ -152,6 +158,7 @@ while True:
     for target in target_accounts:
         post_ids = get_post_ids(target, accounts[0]["bearer_token"])
         if not post_ids:
+            logger.warning(f"No posts found for {target}")
             continue
         latest_id = str(post_ids[0])
         if latest_id > str(last_ids.get(target, "0")):
@@ -159,11 +166,13 @@ while True:
             target_post_id = latest_id
             target_account = target
             last_ids[target] = latest_id
+            logger.info(f"New post found for {target}, ID: {latest_id}")
             break
 
     # Tüm hesaplar için işlem
     for acc_idx, account in enumerate(accounts):
         if daily_counts[acc_idx] >= 15:  # Günlük limit
+            logger.warning(f"Daily limit reached for account {acc_idx}")
             continue
 
         auth = tweepy.OAuthHandler(account["api_key"], account["api_secret"])
@@ -176,22 +185,23 @@ while True:
                 img, img_name = download_image()
                 media = api.media_upload(filename=img_name, file=img)
                 api.update_status(status=comment, media_ids=[media.media_id], in_reply_to_status_id=target_post_id)
-                print(f"Account {account['access_token'][:10]}: {comment} [Image: {img_name}]")
+                logger.info(f"Account {account['access_token'][:10]} posted comment: {comment} [Image: {img_name}]")
                 daily_counts[acc_idx] += 1
             except tweepy.TweepError as e:
-                print(f"Comment error: {e}")
+                logger.error(f"Comment error for account {account['access_token'][:10]}: {str(e)}")
         else:  # Bağımsız tweet
             tweet = generate_tweet()
             try:
                 img, img_name = download_image()
                 media = api.media_upload(filename=img_name, file=img)
                 api.update_status(status=tweet, media_ids=[media.media_id])
-                print(f"Account {account['access_token'][:10]}: {tweet} [Image: {img_name}]")
+                logger.info(f"Account {account['access_token'][:10]} posted tweet: {tweet} [Image: {img_name}]")
                 daily_counts[acc_idx] += 1
             except tweepy.TweepError as e:
-                print(f"Tweet error: {e}")
+                logger.error(f"Tweet error for account {account['access_token'][:10]}: {str(e)}")
 
         time.sleep(5400 / len(accounts))  # 1.5 saat, hesaplar arasında bölüş
 
     save_last_ids(last_ids)
+    logger.info("Loop completed, waiting for next cycle")
     time.sleep(5400)  # 1.5 saat bekle
