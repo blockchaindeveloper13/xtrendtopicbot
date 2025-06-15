@@ -5,7 +5,6 @@ import os
 import requests
 import json
 import logging
-from xai_sdk import XAIClient  # Grok API için, gerçek kütüphaneyi ekle
 from io import BytesIO
 
 # Logging ayarı
@@ -56,10 +55,6 @@ accounts = [
     }
 ]
 
-# Grok API
-grok_api_key = os.environ["GROK_API_KEY"]
-grok_client = XAIClient(api_key=grok_api_key)
-
 # GitHub’daki resimler
 image_urls = [
     "https://raw.githubusercontent.com/blockchaindeveloper13/xtrendtopicbot/main/images/image.jpg",
@@ -90,28 +85,13 @@ def save_last_ids(last_ids):
     with open(LAST_IDS_FILE, "w") as f:
         json.dump(last_ids, f)
 
-# Tweet üret
+# Tweet üret (Grok API’siz, sabit tweet)
 def generate_tweet(target=None):
-    base_prompt = (
-        "Write a 160-char tweet in English for Solium Coin. Highlight the extended presale, BNB participation via Binance/KuCoin Web3 Wallet or MetaMask. "
-        "Emphasize Dubai-inspired, BSC-Solana bridged, #SoliumArmy-led Web3 project. "
-        "Avoid wealth promises or investment guarantees to comply with SEC’s Howey Test. "
-        "Include https://bit.ly/3HHUPTQ and mention @soliumcoin naturally."
-    )
-    if target in ["Binance", "KuCoinCom", "BitMartExchange", "MEXC_Official", "Gate_io"]:
-        prompt = f"{base_prompt} Call out {target} for listing."
-    elif target in ["Shibtoken", "BabyDogeCoin"]:
-        prompt = f"{base_prompt} Appeal to {target}’s community."
-    else:
-        prompt = base_prompt
-    response = grok_client.generate_text(prompt=prompt, max_length=160)
-    # Rastgele 3 hashtag ekle
+    base_tweet = "Solium presale extended! Join #SoliumArmy with BNB via MetaMask. Dubai-inspired Web3 on BSC-Solana! https://bit.ly/3HHUPTQ @soliumcoin"
     hashtags = random.sample(HASHTAG_POOL, 3)
-    tweet = f"{response.text} https://bit.ly/3HHUPTQ @soliumcoin {' '.join(hashtags)}"
+    tweet = f"{base_tweet} {' '.join(hashtags)}"
     if len(tweet) > 280:
-        # Kısalt, @soliumcoin ve linki koru
-        text_part = response.text[:280 - len(" https://bit.ly/3HHUPTQ @soliumcoin " + " ".join(hashtags))]
-        tweet = f"{text_part} https://bit.ly/3HHUPTQ @soliumcoin {' '.join(hashtags)}"
+        tweet = tweet[:280]  # Kısalt, ama link ve @soliumcoin korunacak
     return tweet
 
 # Resmi GitHub’dan çek
