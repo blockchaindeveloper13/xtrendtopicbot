@@ -7,28 +7,25 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Config Vars’tan anahtarları çek
+# Config Vars’tan anahtarları çek (sadece v1)
 accounts = [
     {
         "api_key": os.environ.get("ACCOUNT1_API_KEY", ""),
         "api_secret": os.environ.get("ACCOUNT1_API_SECRET", ""),
         "access_token": os.environ.get("ACCOUNT1_ACCESS_TOKEN", ""),
         "access_token_secret": os.environ.get("ACCOUNT1_ACCESS_TOKEN_SECRET", ""),
-        "bearer_token": os.environ.get("ACCOUNT1_BEARER_TOKEN", "")
     },
     {
         "api_key": os.environ.get("ACCOUNT2_API_KEY", ""),
         "api_secret": os.environ.get("ACCOUNT2_API_SECRET", ""),
         "access_token": os.environ.get("ACCOUNT2_ACCESS_TOKEN", ""),
         "access_token_secret": os.environ.get("ACCOUNT2_ACCESS_TOKEN_SECRET", ""),
-        "bearer_token": os.environ.get("ACCOUNT2_BEARER_TOKEN", "")
     },
     {
         "api_key": os.environ.get("ACCOUNT3_API_KEY", ""),
         "api_secret": os.environ.get("ACCOUNT3_API_SECRET", ""),
         "access_token": os.environ.get("ACCOUNT3_ACCESS_TOKEN", ""),
         "access_token_secret": os.environ.get("ACCOUNT3_ACCESS_TOKEN_SECRET", ""),
-        "bearer_token": os.environ.get("ACCOUNT3_BEARER_TOKEN", "")
     }
 ]
 
