@@ -3,7 +3,7 @@ import random
 import time
 import os
 import requests
-from xai_sdk import XAIClient  # Grok API için, varsayım
+from xai_sdk import XAIClient  # Grok API için, gerçek kütüphaneyi ekle
 
 # Config Vars’tan anahtarları çek
 accounts = [
@@ -30,17 +30,17 @@ accounts = [
     }
 ]
 
-# Grok API anahtarı
+# Grok API
 grok_api_key = os.environ["GROK_API_KEY"]
 grok_client = XAIClient(api_key=grok_api_key)
 
-# Grok ile tweet üret
+# Tweet üret
 def generate_tweet():
-    prompt = "Solium Coin için 280 karakterden kısa, esprili ve dikkat çekici bir tanıtım tweet’i yaz. Kripto borsalarına hitap etsin, #SoliumCoin ve #Crypto etiketlerini kullansın. Samimi bir ton olsun."
+    prompt = "Solium Coin için 280 karakterden kısa, esprili ve dikkat çekici bir tanıtım tweet’i yaz. Kripto borsalarına hitap etsin, #SoliumCoin ve #Crypto etiketlerini kullansın."
     response = grok_client.generate_text(prompt=prompt, max_length=280)
     return response.text
 
-# Borsaların son tweet ID’lerini çek
+# Borsaların tweet ID’lerini çek
 def get_post_ids(username, bearer_token):
     headers = {"Authorization": f"Bearer {bearer_token}"}
     url = f"https://api.x.com/2/users/by/username/{username}/tweets?max_results=10"
@@ -64,24 +64,24 @@ for account in accounts:
     auth.set_access_token(account["access_token"], account["access_token_secret"])
     api = tweepy.API(auth, wait_on_rate_limit=True)
 
-    # Bağımsız tweet (günde max 16, ayda 500 limit için)
-    for _ in range(5):  # Günde 5 bağımsız tweet
+    # Bağımsız tweet (günde 5)
+    for _ in range(5):
         tweet = generate_tweet()
         try:
             api.update_status(tweet)
             print(f"Hesap {account['access_token'][:10]}: {tweet}")
         except tweepy.TweepError as e:
             print(f"Tweet hatası: {e}")
-        time.sleep(3600)  # 1 saat bekle
+        time.sleep(3600)
 
     # Borsalara yorum
     for borsa in target_borzas:
         post_ids = get_post_ids(borsa, account["bearer_token"])
-        for post_id in post_ids[:2]:  # Her borsadan 2 gönderiye yorum
+        for post_id in post_ids[:2]:
             comment = f"@{borsa} {generate_tweet()}"
             try:
                 api.update_status(comment, in_reply_to_status_id=post_id)
                 print(f"Yorum: {comment}")
             except tweepy.TweepError as e:
                 print(f"Yorum hatası: {e}")
-            time.sleep(3600)  # 1 saat bekle
+            time.sleep(3600)
