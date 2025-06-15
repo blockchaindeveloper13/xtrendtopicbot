@@ -6,6 +6,7 @@ import requests
 import json
 import logging
 from io import BytesIO
+from tweepy.errors import TweepyException  # TweepError yerine
 
 # Logging ayarı
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -33,25 +34,25 @@ HASHTAG_POOL = [
 # Config Vars’tan anahtarları çek
 accounts = [
     {
-        "api_key": os.environ["ACCOUNT1_API_KEY"],
-        "api_secret": os.environ["ACCOUNT1_API_SECRET"],
-        "access_token": os.environ["ACCOUNT1_ACCESS_TOKEN"],
-        "access_token_secret": os.environ["ACCOUNT1_ACCESS_TOKEN_SECRET"],
-        "bearer_token": os.environ["ACCOUNT1_BEARER_TOKEN"]
+        "api_key": os.environ.get("ACCOUNT1_API_KEY", ""),
+        "api_secret": os.environ.get("ACCOUNT1_API_SECRET", ""),
+        "access_token": os.environ.get("ACCOUNT1_ACCESS_TOKEN", ""),
+        "access_token_secret": os.environ.get("ACCOUNT1_ACCESS_TOKEN_SECRET", ""),
+        "bearer_token": os.environ.get("ACCOUNT1_BEARER_TOKEN", "")
     },
     {
-        "api_key": os.environ["ACCOUNT2_API_KEY"],
-        "api_secret": os.environ["ACCOUNT2_API_SECRET"],
-        "access_token": os.environ["ACCOUNT2_ACCESS_TOKEN"],
-        "access_token_secret": os.environ["ACCOUNT2_ACCESS_TOKEN_SECRET"],
-        "bearer_token": os.environ["ACCOUNT2_BEARER_TOKEN"]
+        "api_key": os.environ.get("ACCOUNT2_API_KEY", ""),
+        "api_secret": os.environ.get("ACCOUNT2_API_SECRET", ""),
+        "access_token": os.environ.get("ACCOUNT2_ACCESS_TOKEN", ""),
+        "access_token_secret": os.environ.get("ACCOUNT2_ACCESS_TOKEN_SECRET", ""),
+        "bearer_token": os.environ.get("ACCOUNT2_BEARER_TOKEN", "")
     },
     {
-        "api_key": os.environ["ACCOUNT3_API_KEY"],
-        "api_secret": os.environ["ACCOUNT3_API_SECRET"],
-        "access_token": os.environ["ACCOUNT3_ACCESS_TOKEN"],
-        "access_token_secret": os.environ["ACCOUNT3_ACCESS_TOKEN_SECRET"],
-        "bearer_token": os.environ["ACCOUNT3_BEARER_TOKEN"]
+        "api_key": os.environ.get("ACCOUNT3_API_KEY", ""),
+        "api_secret": os.environ.get("ACCOUNT3_API_SECRET", ""),
+        "access_token": os.environ.get("ACCOUNT3_ACCESS_TOKEN", ""),
+        "access_token_secret": os.environ.get("ACCOUNT3_ACCESS_TOKEN_SECRET", ""),
+        "bearer_token": os.environ.get("ACCOUNT3_BEARER_TOKEN", "")
     }
 ]
 
@@ -151,13 +152,20 @@ while True:
 
     # Tüm hesaplar için işlem
     for acc_idx, account in enumerate(accounts):
+        if not all([account["api_key"], account["api_secret"], account["access_token"], account["access_token_secret"], account["bearer_token"]]):
+            logger.error(f"Missing API credentials for account {acc_idx}")
+            continue
         if daily_counts[acc_idx] >= 15:  # Günlük limit
             logger.warning(f"Daily limit reached for account {acc_idx}")
             continue
 
-        auth = tweepy.OAuthHandler(account["api_key"], account["api_secret"])
-        auth.set_access_token(account["access_token"], account["access_token_secret"])
-        api = tweepy.API(auth, wait_on_rate_limit=True)
+        try:
+            auth = tweepy.OAuthHandler(account["api_key"], account["api_secret"])
+            auth.set_access_token(account["access_token"], account["access_token_secret"])
+            api = tweepy.API(auth, wait_on_rate_limit=True)
+        except Exception as e:
+            logger.error(f"Authentication failed for account {acc_idx}: {str(e)}")
+            continue
 
         if new_post_found:  # Yeni gönderiye yorum
             comment = f"@{target_account} {generate_tweet(target=target_account)}"
@@ -167,7 +175,7 @@ while True:
                 api.update_status(status=comment, media_ids=[media.media_id], in_reply_to_status_id=target_post_id)
                 logger.info(f"Account {account['access_token'][:10]} posted comment: {comment} [Image: {img_name}]")
                 daily_counts[acc_idx] += 1
-            except tweepy.TweepError as e:
+            except TweepyException as e:
                 logger.error(f"Comment error for account {account['access_token'][:10]}: {str(e)}")
         else:  # Bağımsız tweet
             tweet = generate_tweet()
@@ -177,7 +185,7 @@ while True:
                 api.update_status(status=tweet, media_ids=[media.media_id])
                 logger.info(f"Account {account['access_token'][:10]} posted tweet: {tweet} [Image: {img_name}]")
                 daily_counts[acc_idx] += 1
-            except tweepy.TweepError as e:
+            except TweepyException as e:
                 logger.error(f"Tweet error for account {account['access_token'][:10]}: {str(e)}")
 
         time.sleep(5400 / len(accounts))  # 1.5 saat, hesaplar arasında bölüş
