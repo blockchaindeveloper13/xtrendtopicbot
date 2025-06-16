@@ -22,42 +22,39 @@ HASHTAGS = [
     "#Presale", "#DeFi", "#CryptoFuture", "#JoinTheFuture"
 ]
 
+# Ortam değişkenlerini set et (test için, production’da Heroku Config Vars’tan çek)
+os.environ["X_API_KEY"] 
+os.environ["X_SECRET_KEY"] 
+os.environ["X_ACCESS_TOKEN"] 
+os.environ["X_ACCESS_SECRET"] 
+os.environ["X2_API_KEY"] 
+os.environ["X2_SECRET_KEY"] 
+os.environ["X2_ACCESS_TOKEN"] 
+os.environ["X2_ACCESS_SECRET"] 
+os.environ["X3_API_KEY"] 
+os.environ["X3_SECRET_KEY"] 
+os.environ["X3_ACCESS_TOKEN"] 
+os.environ["X3_ACCESS_SECRET"] 
+os.environ["GROK_API_KEY"] 
+
 # Twitter API v2 istemcilerini başlat
-try:
-    client_x = tweepy.Client(
-        consumer_key=os.getenv("X_API_KEY"),
-        consumer_secret=os.getenv("X_SECRET_KEY"),
-        access_token=os.getenv("X_ACCESS_TOKEN"),
-        access_token_secret=os.getenv("X_ACCESS_SECRET")
-    )
-    logging.info("X API istemcisi başarıyla başlatıldı")
-except Exception as e:
-    logging.error(f"X API istemcisi başlatılamadı: {e}")
-    raise
-
-try:
-    client_x2 = tweepy.Client(
-        consumer_key=os.getenv("X2_API_KEY"),
-        consumer_secret=os.getenv("X2_SECRET_KEY"),
-        access_token=os.getenv("X2_ACCESS_TOKEN"),
-        access_token_secret=os.getenv("X2_ACCESS_SECRET")
-    )
-    logging.info("X2 API istemcisi başarıyla başlatıldı")
-except Exception as e:
-    logging.error(f"X2 API istemcisi başlatılamadı: {e}")
-    raise
-
-try:
-    client_x3 = tweepy.Client(
-        consumer_key=os.getenv("X3_API_KEY"),
-        consumer_secret=os.getenv("X3_SECRET_KEY"),
-        access_token=os.getenv("X3_ACCESS_TOKEN"),
-        access_token_secret=os.getenv("X3_ACCESS_SECRET")
-    )
-    logging.info("X3 API istemcisi başarıyla başlatıldı")
-except Exception as e:
-    logging.error(f"X3 API istemcisi başlatılamadı: {e}")
-    raise
+clients = {
+    "X": None,
+    "X2": None,
+    "X3": None
+}
+for account_name in clients.keys():
+    try:
+        clients[account_name] = tweepy.Client(
+            consumer_key=os.getenv(f"{account_name}_API_KEY"),
+            consumer_secret=os.getenv(f"{account_name}_SECRET_KEY"),
+            access_token=os.getenv(f"{account_name}_ACCESS_TOKEN"),
+            access_token_secret=os.getenv(f"{account_name}_ACCESS_SECRET")
+        )
+        logging.info(f"{account_name} API istemcisi başarıyla başlatıldı")
+    except Exception as e:
+        logging.error(f"{account_name} API istemcisi başlatılamadı: {e}")
+        raise
 
 # Grok API ile tweet içeriği üret
 def generate_tweet_content():
@@ -71,7 +68,7 @@ def generate_tweet_content():
             "invites people to join the presale, emphasizes Web3's future, and avoids exaggerated promises "
             "(e.g., no 'get rich quick' claims). Use a calm, persuasive tone like 'Web3's future is here, "
             "don't miss out!' or 'Join us, or we're one person short!'. End with 'Follow @soliumcoin'. "
-            "Do not include hashtags in the content, they will be added separately. Aim for 260-270 characters to fill the tweet."
+            "Do not include hashtags in the content, they will be added separately. Keep it under 240 characters."
         )
         response = requests.post(
             "https://api.x.ai/v1/grok/generate",
@@ -82,89 +79,49 @@ def generate_tweet_content():
         tweet = response.json().get("text", "").strip()
         # Hashtag ekle
         selected_hashtags = random.sample(HASHTAGS, 3)
-        hashtag_str = " ".join(selected_hashtags)
-        tweet = f"{tweet} {hashtag_str}"
-        # 280 karaktere doldur
-        current_length = len(tweet)
-        if current_length < 280:
-            padding = " " * (280 - current_length - 3) + "..."
-            tweet = f"{tweet}{padding}"
-        elif current_length > 280:
+        tweet = f"{tweet} {' '.join(selected_hashtags)}"
+        if len(tweet) > 280:
             tweet = tweet[:277] + "..."  # Twitter karakter limiti
         return tweet
     except Exception as e:
         logging.error(f"Grok tweet üretimi hatası: {e}")
-        default_tweet = (
-            "soliumcoin.com Join the Web3 future with our presale! Be part of something big with SoliumCoin. "
-            "The decentralized world is evolving, don’t miss your chance to shape it. Follow @soliumcoin "
+        return (
+            "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
+            + " ".join(random.sample(HASHTAGS, 3))
         )
-        selected_hashtags = random.sample(HASHTAGS, 3)
-        hashtag_str = " ".join(selected_hashtags)
-        tweet = f"{default_tweet}{hashtag_str}"
-        current_length = len(tweet)
-        if current_length < 280:
-            padding = " " * (280 - current_length - 3) + "..."
-            tweet = f"{tweet}{padding}"
-        elif current_length > 280:
-            tweet = tweet[:277] + "..."  # Twitter karakter limiti
-        return tweet
 
-# Tweet gönder (4 tweet at)
+# Tweet gönder
 def post_tweet(account_name, client):
     try:
         # Kimlik doğrulama testi
         me = client.get_me()
         logging.info(f"{account_name} kimlik doğrulama başarılı, kullanıcı: {me.data.username}")
         
-        # 4 tweet at (2980 karaktere yaklaşmak için)
-        for i in range(4):
-            tweet_text = generate_tweet_content()
-            response = client.create_tweet(text=tweet_text)
-            logging.info(f"{account_name} tweet {i+1}/4 gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
-            time.sleep(2)  # Tweet’ler arasında kısa bekleme
-    except tweepy.errors.Forbidden as e:
-        logging.error(f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini kontrol et: {e}")
-    except tweepy.errors.TooManyRequests as e:
-        logging.warning(f"{account_name} API limitine takıldı, 96 dakika sonra tekrar denenecek: {e}")
-        time.sleep(5760)  # 96 dakika bekle
-        post_tweet(account_name, client)  # Tekrar dene
+        # Tweet içeriği üret
+        tweet_text = generate_tweet_content()
+        response = client.create_tweet(text=tweet_text)
+        logging.info(f"{account_name} tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
     except Exception as e:
         logging.error(f"{account_name} tweet gönderim hatası: {e}")
 
 # Tweet zamanlama
 def schedule_tweets():
     scheduler = BackgroundScheduler(timezone="UTC")
-    scheduler.add_job(
-        post_tweet,
-        'interval',
-        seconds=5760,  # 96 dk, 15 tweet/gün
-        args=["X", client_x],
-        id="tweet_job_X",
-        jitter=300
-    )
-    scheduler.add_job(
-        post_tweet,
-        'interval',
-        seconds=5760,  # 96 dk, 15 tweet/gün
-        args=["X2", client_x2],
-        id="tweet_job_X2",
-        jitter=300
-    )
-    scheduler.add_job(
-        post_tweet,
-        'interval',
-        seconds=5760,  # 96 dk, 15 tweet/gün
-        args=["X3", client_x3],
-        id="tweet_job_X3",
-        jitter=300
-    )
+    for account_name, client in clients.items():
+        scheduler.add_job(
+            post_tweet,
+            'interval',
+            seconds=5760,  # 96 dk, 15 tweet/gün
+            args=[account_name, client],
+            id=f"tweet_job_{account_name}",
+            jitter=300  # 5 dk rastgele gecikme
+        )
     scheduler.start()
 
 def main():
     logging.info("Solium Bot başlatılıyor...")
-    post_tweet("X", client_x)
-    post_tweet("X2", client_x2)
-    post_tweet("X3", client_x3)
+    for account_name, client in clients.items():
+        post_tweet(account_name, client)
     schedule_tweets()
     try:
         while True:
