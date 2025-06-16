@@ -1,10 +1,7 @@
 import tweepy
 import time
-import random
 import logging
-import httpx
 from datetime import datetime, timezone, timedelta
-from openai import OpenAI
 from apscheduler.schedulers.background import BackgroundScheduler
 
 # Günlük kaydı (Türkiye saati, detaylı loglama)
@@ -16,17 +13,20 @@ logging.basicConfig(
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Sabit anahtarlar (Generate sonrası güncelle)
-CLIENT_ID = "dkdaZVhiVlYzd2EtcUFpMDZOS1A6MTpchaQ"
-CLIENT_SECRET = "MxkrwY17gpQa47tqoZz9uGL-ZlsII8zVLHWw3vZNtq_vTHqL0m"  # Verdiğin Client Secret
-ACCESS_TOKEN = "1934310422313947136-5e9NS7zBWQeFhRSV1R84xFEb0qtsH9"  # Generate ile değiştir
-ACCESS_TOKEN_SECRET = "9PjYP8JH2MOCPI8LxkzCRSeUW7pGRNvgxgn2GvqcN87h6"  # Generate ile değiştir
-GROK_API_KEY = "xai-v142BjDnVMg7mfZIJkTzf0d29gux3hEOoiiNvmgZtyB05Oi8fVn5P417P9wNReOue9URTXkGOM1jsCMm"
+# Sabit anahtarlar (yeni Generate edilenler)
+CLIENT_ID = "dkdaZVhiVlYzd2EtcUFpMDZOS1A6MTpjaQ"
+CLIENT_SECRET = "CMmIPHRswpHNxXlr3VJpOoMbICrKuOGD1pYD0LJfEnHPp8gnp8"
+API_KEY = "TJE6mnAVYn2fSWzNisHP0oRbQ"
+API_SECRET = "1BfFOKXXJO7L0jEAw1wAQ2fFGJbJAgrGiRR2r8dn1l6Of2h6SR"
+ACCESS_TOKEN = "1934310422313947136-nz9YBN2Ibbj2Xqr9ILBBr49Hm9ndpR"
+ACCESS_TOKEN_SECRET = "KG3gpiuEPZE4uyjZubCWkuIUL1lmDH9WaNq0TL2B48IzR"
 
 # Twitter API v2 istemcisi (OAuth 2.0)
 try:
     logging.debug(f"Client ID: {CLIENT_ID[:5]}... (gizlendi)")
     logging.debug(f"Client Secret: {CLIENT_SECRET[:5]}... (gizlendi)")
+    logging.debug(f"API Key: {API_KEY[:5]}... (gizlendi)")
+    logging.debug(f"API Secret: {API_SECRET[:5]}... (gizlendi)")
     logging.debug(f"Access Token: {ACCESS_TOKEN[:5]}... (gizlendi)")
     logging.debug(f"Access Token Secret: {ACCESS_TOKEN_SECRET[:5]}... (gizlendi)")
     
@@ -43,19 +43,8 @@ except Exception as e:
     logging.error(f"Twitter API v2 istemcisi başlatılamadı: {e}")
     raise
 
-# Grok istemcisi
-try:
-    logging.debug(f"Grok API Key: {GROK_API_KEY[:5]}... (gizlendi)")
-    client_grok = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1", http_client=httpx.Client(proxies=None))
-    logging.info("Grok istemcisi başarıyla başlatıldı")
-except Exception as e:
-    logging.error(f"Grok istemcisi başlatılamadı: {e}")
-    raise
-
 # Sabitler
-WEBSITE_URL = "https://soliumcoin.com"
-SALE_MESSAGE = f" Join with BNB now via Binance Web3 Wallet, KuCoin Web3 Wallet, or MetaMask! Explore: {WEBSITE_URL}"
-TEST_TWEET = f"{WEBSITE_URL} Test tweet for Solium Coin! @soliumcoin {SALE_MESSAGE} #Solium #Web3 #Crypto"
+TEST_TWEET = "Bu bir test mesajıdır"
 
 def check_rate_limit(client):
     try:
