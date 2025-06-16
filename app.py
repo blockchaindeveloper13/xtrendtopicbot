@@ -149,19 +149,18 @@ class SoliumBot:
             elif current_length > 240:
                 tweet = tweet[:237] + "..."
             
-            final_tweet = f"{tweet} {hashtag_str}"
+            final_tweet = f"{tweet}{hashtag_str}"
             logging.debug(f"{account_name} için oluşturulan tweet: {final_tweet}")
             return final_tweet
             
         except Exception as e:
             if "rate limit" in str(e).lower():
-                logging.warning(f"ChatGPT API rate limit aşıldı (Hesap: {account_name}), 60 saniye bekleniyor...")
+                logging.warning(f"ChatGPT API rate limit aşıldı (Hesap: {account_name}), 60 saniye bekleniyor: {e}")
                 time.sleep(60)
                 return self.generate_tweet_with_openai(account_name)  # Tekrar dene
             logging.error(f"ChatGPT tweet üretimi hatası ({account_name}): {e}")
             return (
-                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
-                + " ".join(random.sample(HASHTAGS, 3))
+                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin {random.sample(HASHTAGS, 3)}"
             )
     
     def post_tweet(self, account_name):
@@ -185,11 +184,11 @@ class SoliumBot:
             return False
         except tweepy.TooManyRequests as e:
             wait_time = 60 * 15  # 15 dakika bekle
-            logging.warning(f"{account_name} için Twitter rate limit aşıldı. {wait_time/60} dakika bekleniyor: {e}")
+            logging.warning(f"{account_name} için Twitter API rate limit aşıldı. {wait_time/60} dakika bekleniyor: {e}")
             time.sleep(wait_time)
             return False
         except Exception as e:
-            logging.error(f"{account_name} tweet gönderim hatası: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
+            logging.error(f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
             return False
     
     def schedule_tweets(self):
