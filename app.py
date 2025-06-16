@@ -92,19 +92,19 @@ class SoliumBot:
     def generate_tweet_with_grok(self, account_name):
         prompts = {
             "X": (
-                "Write a professional English tweet for SoliumCoin, 180-200 characters. "
+                "Write a professional English tweet for SoliumCoin, 160-180 characters. "
                 "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
                 "Include 'Don’t miss our presale!' to emphasize the ongoing presale. "
                 "End with 'Follow @soliumcoin'. No hashtags, keep it factual."
             ),
             "X2": (
-                "Write a community-focused English tweet for SoliumCoin, 180-200 characters. "
+                "Write a community-focused English tweet for SoliumCoin, 160-180 characters. "
                 "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale benefits. "
                 "Include 'Don’t miss our presale!'. Use friendly tone. End with 'Follow @soliumcoin'. "
                 "No hashtags, keep it inclusive."
             ),
             "X3": (
-                "Write an energetic English tweet for SoliumCoin, 180-200 characters. "
+                "Write an energetic English tweet for SoliumCoin, 160-180 characters. "
                 "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
                 "Include 'Don’t miss our presale!'. Use exciting but professional tone. "
                 "End with 'Follow @soliumcoin'. No hashtags, avoid exaggeration."
@@ -116,7 +116,7 @@ class SoliumBot:
             response = self.grok_client.chat.completions.create(
                 model="grok-3-latest",
                 messages=[{"role": "user", "content": prompts[account_name]}],
-                max_tokens=100,  # Daha kısa içerik için
+                max_tokens=90,
                 temperature=0.7,
                 top_p=0.9,
                 frequency_penalty=0.2,
@@ -126,25 +126,38 @@ class SoliumBot:
             tweet = response.choices[0].message.content.strip()
             
             # Tweet formatını zorla
-            if not tweet.startswith("soliumcoin.com"):
-                tweet = f"soliumcoin.com {tweet[:160]}"
-            if not tweet.endswith("Follow @soliumcoin"):
-                tweet = tweet[:180] + " Follow @soliumcoin"
-            if "Don’t miss our presale!" not in tweet:
-                tweet = tweet[:160] + " Don’t miss our presale!" + tweet[-17:]
+            base_components = {
+                "start": "soliumcoin.com",
+                "presale": "Don’t miss our presale!",
+                "end": "Follow @soliumcoin",
+                "hashtags": " #bitcoin #binance #mexc"
+            }
+            base_length = sum(len(c) for c in base_components.values())  # 76 karakter
             
-            # 180-200 karaktere ayarla
+            # İçeriği kırp
+            content_max_length = 280 - base_length  # ~204 karakter
+            if len(tweet) > content_max_length:
+                tweet = tweet[:content_max_length - 3] + "..."
+            
+            # Formatı oluştur
+            if not tweet.startswith(base_components["start"]):
+                tweet = f"{base_components['start']} {tweet[:content_max_length - len(base_components['start']) - 1]}"
+            if base_components["presale"] not in tweet:
+                tweet = tweet[:content_max_length - len(base_components["presale"]) - 1] + f" {base_components['presale']}"
+            if not tweet.endswith(base_components["end"]):
+                tweet = tweet[:content_max_length - len(base_components["end"]) - 1] + f" {base_components['end']}"
+            
+            # 160-180 karaktere ayarla (içerik kısmı)
             current_length = len(tweet)
-            if current_length < 180:
-                padding = " " * (180 - current_length)
+            if current_length < 160:
+                padding = " " * (160 - current_length)
                 tweet = f"{tweet}{padding}"
-            elif current_length > 200:
-                tweet = tweet[:197] + "..."
+            elif current_length > 180:
+                tweet = tweet[:177] + "..."
             
-            hashtag_str = " #bitcoin #binance #mexc"
-            final_tweet = f"{tweet}{hashtag_str}"
+            final_tweet = f"{tweet}{base_components['hashtags']}"
             
-            # 280 karakter kontrolü
+            # Son kontrol: 280 karakter
             if len(final_tweet) > 280:
                 final_tweet = final_tweet[:277] + "..."
             
@@ -158,7 +171,7 @@ class SoliumBot:
                 return self.generate_tweet_with_grok(account_name)
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
             return (
-                f"soliumcoin.com Join the Web3 future! Don’t miss our presale! Follow @soliumcoin #bitcoin #binance #mexc"
+                f"soliumcoin.com Join Web3! Don’t miss our presale! Follow @soliumcoin #bitcoin #binance #mexc"
             )
     
     def post_tweet(self, account_name):
