@@ -83,12 +83,12 @@ except Exception as e:
     raise
 
 # Grok API ile tweet içeriği üret
-def generate_tweet_content():
+def generate_tweet_content(account_name):
     try:
         response = client_grok.chat.completions.create(
             model="grok-3",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant creating tweets for SoliumCoin."},
+                {"role": "system", "content": f"You are a helpful assistant creating tweets for SoliumCoin for account {account_name}."},
                 {"role": "user", "content": (
                     "Generate a unique, engaging English tweet for SoliumCoin that starts with 'soliumcoin.com', "
                     "invites people to join the presale, emphasizes Web3's future, and avoids exaggerated promises "
@@ -114,33 +114,34 @@ def generate_tweet_content():
             tweet = tweet[:277] + "..."  # Twitter karakter limiti
         return tweet
     except Exception as e:
-        logging.error(f"Grok tweet üretimi hatası: {e}")
+        logging.error(f"Grok tweet üretimi hatası (Hesap: {account_name}): {e}")
         return (
             "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
             + " ".join(random.sample(HASHTAGS, 3))
         )
 
-# Tweet gönder (4 tweet at)
+# Tweet gönder (tek tweet, 280 karakter)
 def post_tweet(account_name, client):
+    logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
     try:
         # Kimlik doğrulama testi
         me = client.get_me()
         logging.info(f"{account_name} kimlik doğrulama başarılı, kullanıcı: {me.data.username}")
         
-        # 4 tweet at (2980 karaktere yaklaşmak için)
-        for i in range(4):
-            tweet_text = generate_tweet_content()
-            response = client.create_tweet(text=tweet_text)
-            logging.info(f"{account_name} tweet {i+1}/4 gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}, Karakter sayısı: {len(tweet_text)}")
-            time.sleep(2)  # Tweet’ler arasında kısa bekleme
+        # Tek tweet at (280 karakter)
+        logging.info(f"{account_name} tweet hazırlanıyor...")
+        tweet_text = generate_tweet_content(account_name)
+        logging.info(f"{account_name} tweet içeriği: {tweet_text}, Karakter sayısı: {len(tweet_text)}")
+        response = client.create_tweet(text=tweet_text)
+        logging.info(f"{account_name} tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}, Karakter sayısı: {len(tweet_text)}")
     except tweepy.errors.Forbidden as e:
-        logging.error(f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et: {e}")
+        logging.error(f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
     except tweepy.errors.TooManyRequests as e:
         logging.warning(f"{account_name} API limitine takıldı, 96 dakika sonra tekrar denenecek: {e}")
         time.sleep(5760)  # 96 dakika bekle
         post_tweet(account_name, client)  # Tekrar dene
     except Exception as e:
-        logging.error(f"{account_name} tweet gönderim hatası: {e}")
+        logging.error(f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
 
 # Tweet zamanlama
 def schedule_tweets():
