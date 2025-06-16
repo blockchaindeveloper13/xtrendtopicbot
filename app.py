@@ -80,7 +80,7 @@ class SoliumBot:
                     consumer_secret=os.getenv(f"{account}_SECRET_KEY"),
                     access_token=os.getenv(f"{account}_ACCESS_TOKEN"),
                     access_token_secret=os.getenv(f"{account}_ACCESS_SECRET"),
-                    wait_on_rate_limit=False  # Manuel yönetelim
+                    wait_on_rate_limit=False
                 )
                 logging.info(f"{account} Twitter istemcisi başarıyla başlatıldı")
             except Exception as e:
@@ -109,20 +109,22 @@ class SoliumBot:
     def generate_tweet_with_grok(self, account_name):
         prompts = {
             "X": (
-                "Create a professional English tweet (220-240 chars) for SoliumCoin starting with 'soliumcoin.com'. "
-                "Focus on blockchain innovation, technology leadership, and real-world use cases. "
-                "Mention the presale opportunity objectively. End with 'Follow @soliumcoin'. "
-                "Avoid hype, keep it factual and engaging. No hashtags."
+                "Write a professional English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Start with 'soliumcoin.com'. Focus on blockchain innovation, technology leadership, and real-world use cases. "
+                "Include a subtle mention of the ongoing presale. End with 'Follow @soliumcoin'. "
+                "No hashtags, avoid hype, keep it factual and engaging."
             ),
             "X2": (
-                "Write a community-focused English tweet (220-240 chars) for SoliumCoin starting with 'soliumcoin.com'. "
-                "Highlight the growing SoliumArmy, community benefits, and how to participate. "
-                "Use friendly, inclusive language. End with 'Follow @soliumcoin'. No hashtags."
+                "Write a community-focused English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Start with 'soliumcoin.com'. Highlight the growing SoliumArmy, community benefits, and how to participate in the presale. "
+                "Use friendly, inclusive language. End with 'Follow @soliumcoin'. "
+                "No hashtags, keep it inviting."
             ),
             "X3": (
-                "Create an exciting but realistic English tweet (220-240 chars) for SoliumCoin starting with 'soliumcoin.com'. "
-                "Emphasize the presale opportunity, growth potential, and roadmap milestones. "
-                "Use energetic but professional tone. End with 'Follow @soliumcoin'. No hashtags."
+                "Write an exciting but realistic English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Start with 'soliumcoin.com'. Emphasize the presale opportunity, growth potential, and roadmap milestones. "
+                "Use energetic but professional tone. End with 'Follow @soliumcoin'. "
+                "No hashtags, avoid exaggeration."
             )
         }
         
@@ -139,18 +141,25 @@ class SoliumBot:
             )
             
             tweet = response.choices[0].message.content.strip()
-            selected_hashtags = random.sample(HASHTAGS, 3)
-            hashtag_str = " ".join(selected_hashtags)
             
-            # 280 karaktere doldur, hashtag'ler sonda
+            # Tweet'in formatını kontrol et
+            if not tweet.startswith("soliumcoin.com"):
+                tweet = f"soliumcoin.com {tweet[:200]}"
+            if not tweet.endswith("Follow @soliumcoin"):
+                tweet = tweet[:200] + " Follow @soliumcoin"
+            
+            # 220-240 karaktere ayarla
             current_length = len(tweet)
-            if current_length < 240:
-                padding = " " * (240 - current_length)
+            if current_length < 220:
+                padding = " " * (220 - current_length)
                 tweet = f"{tweet}{padding}"
             elif current_length > 240:
                 tweet = tweet[:237] + "..."
             
+            selected_hashtags = random.sample(HASHTAGS, 3)
+            hashtag_str = " ".join(selected_hashtags)
             final_tweet = f"{tweet} {hashtag_str}"
+            
             logging.info(f"{account_name} için üretilen tweet içeriği: {final_tweet}")
             return final_tweet
             
@@ -172,7 +181,6 @@ class SoliumBot:
             logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
             tweet_text = self.generate_tweet_with_grok(account_name)
             
-            # Tweet içeriği zaten generate_tweet_with_grok içinde loglandı
             logging.info(f"{account_name} için Twitter API çağrısı yapılıyor...")
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
             
