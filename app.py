@@ -92,19 +92,19 @@ class SoliumBot:
     def generate_tweet_with_grok(self, account_name):
         prompts = {
             "X": (
-                "Write a professional English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Write a professional English tweet for SoliumCoin, 180-200 characters. "
                 "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
                 "Include 'Don’t miss our presale!' to emphasize the ongoing presale. "
                 "End with 'Follow @soliumcoin'. No hashtags, keep it factual."
             ),
             "X2": (
-                "Write a community-focused English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale participation benefits. "
+                "Write a community-focused English tweet for SoliumCoin, 180-200 characters. "
+                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale benefits. "
                 "Include 'Don’t miss our presale!'. Use friendly tone. End with 'Follow @soliumcoin'. "
                 "No hashtags, keep it inclusive."
             ),
             "X3": (
-                "Write an energetic English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Write an energetic English tweet for SoliumCoin, 180-200 characters. "
                 "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
                 "Include 'Don’t miss our presale!'. Use exciting but professional tone. "
                 "End with 'Follow @soliumcoin'. No hashtags, avoid exaggeration."
@@ -116,7 +116,7 @@ class SoliumBot:
             response = self.grok_client.chat.completions.create(
                 model="grok-3-latest",
                 messages=[{"role": "user", "content": prompts[account_name]}],
-                max_tokens=150,
+                max_tokens=100,  # Daha kısa içerik için
                 temperature=0.7,
                 top_p=0.9,
                 frequency_penalty=0.2,
@@ -127,28 +127,28 @@ class SoliumBot:
             
             # Tweet formatını zorla
             if not tweet.startswith("soliumcoin.com"):
-                tweet = f"soliumcoin.com {tweet[:180]}"
+                tweet = f"soliumcoin.com {tweet[:160]}"
             if not tweet.endswith("Follow @soliumcoin"):
-                tweet = tweet[:200] + " Follow @soliumcoin"
+                tweet = tweet[:180] + " Follow @soliumcoin"
             if "Don’t miss our presale!" not in tweet:
-                tweet = tweet[:180] + " Don’t miss our presale!" + tweet[-17:]
+                tweet = tweet[:160] + " Don’t miss our presale!" + tweet[-17:]
             
-            # 220-240 karaktere ayarla
+            # 180-200 karaktere ayarla
             current_length = len(tweet)
-            if current_length < 220:
-                padding = " " * (220 - current_length)
+            if current_length < 180:
+                padding = " " * (180 - current_length)
                 tweet = f"{tweet}{padding}"
-            elif current_length > 240:
-                tweet = tweet[:237] + "..."
+            elif current_length > 200:
+                tweet = tweet[:197] + "..."
             
             hashtag_str = " #bitcoin #binance #mexc"
             final_tweet = f"{tweet}{hashtag_str}"
             
-            # Karakter sayısını kontrol et
+            # 280 karakter kontrolü
             if len(final_tweet) > 280:
                 final_tweet = final_tweet[:277] + "..."
             
-            logging.info(f"{account_name} için üretilen tweet içeriği: {final_tweet}")
+            logging.info(f"{account_name} için üretilen tweet içeriği ({len(final_tweet)} karakter): {final_tweet}")
             return final_tweet
             
         except Exception as e:
@@ -187,7 +187,7 @@ class SoliumBot:
                     f"{wait_time:.1f} saniye bekleniyor (sıfırlama: {datetime.fromtimestamp(reset_time, tz=timezone(timedelta(hours=3)))}): {e}"
                 )
                 time.sleep(wait_time)
-                return self.post_tweet(account_name)  # 2 saat sonra tekrar dene
+                return self.post_tweet(account_name)
             else:
                 reset_time = int(headers.get('x-rate-limit-reset', time.time() + 900))
                 wait_time = max(reset_time - time.time(), 15)
@@ -212,7 +212,7 @@ class SoliumBot:
     def schedule_tweets(self):
         interval = 5760  # 96 dakika
         
-        for account_name in self.twitter_clients:
+        for account_name in self.twitter_clients.keys():
             self.scheduler.add_job(
                 self.post_tweet,
                 'interval',
@@ -228,7 +228,7 @@ class SoliumBot:
     
     def run_initial_tweets(self):
         logging.info("Başlangıç tweetleri gönderiliyor (Grok-3 ile)...")
-        for account_name in self.twitter_clients.keys():  # Tüm hesapları dolaş
+        for account_name in self.twitter_clients.keys():
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
