@@ -1,5 +1,4 @@
 import tweepy
-import os
 import time
 import random
 import logging
@@ -8,61 +7,43 @@ from datetime import datetime, timezone, timedelta
 from openai import OpenAI
 from apscheduler.schedulers.background import BackgroundScheduler
 
-# Günlük kaydı (Türkiye saati)
+# Günlük kaydı (Türkiye saati, detaylı loglama)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # DEBUG seviyesi ile her şeyi logla
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.FileHandler('solium_bot.log'), logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S %Z'
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Çevre değişkenleri kontrol (3 hesap için)
-required_env_vars = [
-    "ACCOUNT1_API_KEY", "ACCOUNT1_API_SECRET", "ACCOUNT1_ACCESS_TOKEN", "ACCOUNT1_ACCESS_TOKEN_SECRET",
-    "ACCOUNT2_API_KEY", "ACCOUNT2_API_SECRET", "ACCOUNT2_ACCESS_TOKEN", "ACCOUNT2_ACCESS_TOKEN_SECRET",
-    "ACCOUNT3_API_KEY", "ACCOUNT3_API_SECRET", "ACCOUNT3_ACCESS_TOKEN", "ACCOUNT3_ACCESS_TOKEN_SECRET",
-    "GROK_API_KEY"
-]
-for var in required_env_vars:
-    if not os.getenv(var):
-        logging.error(f"Çevre değişkeni eksik: {var}")
-        raise EnvironmentError(f"Çevre değişkeni eksik: {var}")
+# Sabit anahtarlar (test için)
+API_KEY = "iiRTBkXqaD9wF8YKZQ6tHs8Yf"
+API_SECRET = "PVKXg0BpLnzgt6SR1H7V6ZkoYfkOmZ4QgrLxyuNZQn0MaAQ5V0"
+ACCESS_TOKEN = "1934310422313947136-5e9NS7zBWQeFhRSV1R84xFEb0qtsH9"
+ACCESS_TOKEN_SECRET = "9PjYP8JH2MOCPI8LxkzCRSeUW7pGRNvgxgn2GvqcN87h6"
+GROK_API_KEY = "xai-v142BjDnVMg7mfZIJkTzf0d29gux3hEOoiiNvmgZtyB05Oi8fVn5P417P9wNReOue9URTXkGOM1jsCMm"  # Mevcut Config Vars’tan alındı
 
-# 3 hesap için istemciler
-accounts = [
-    {
-        "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT1_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT1_API_SECRET"),
-            access_token=os.getenv("ACCOUNT1_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT1_ACCESS_TOKEN_SECRET")
-        ),
-        "name": "Account1"
-    },
-    {
-        "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT2_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT2_API_SECRET"),
-            access_token=os.getenv("ACCOUNT2_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT2_ACCESS_TOKEN_SECRET")
-        ),
-        "name": "Account2"
-    },
-    {
-        "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT3_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT3_API_SECRET"),
-            access_token=os.getenv("ACCOUNT3_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT3_ACCESS_TOKEN_SECRET")
-        ),
-        "name": "Account3"
-    }
-]
+# Twitter API v1.1 istemcisi (OAuth 1.0a)
+try:
+    logging.debug(f"API Key: {API_KEY[:5]}... (gizlendi)")
+    logging.debug(f"API Secret: {API_SECRET[:5]}... (gizlendi)")
+    logging.debug(f"Access Token: {ACCESS_TOKEN[:5]}... (gizlendi)")
+    logging.debug(f"Access Token Secret: {ACCESS_TOKEN_SECRET[:5]}... (gizlendi)")
+    
+    auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET)
+    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+    api_x = tweepy.API(auth, wait_on_rate_limit=True)
+    logging.info("Twitter API v1.1 istemcisi başarıyla başlatıldı")
+    user = api_x.verify_credentials()
+    logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {user.screen_name}")
+except Exception as e:
+    logging.error(f"Twitter API istemcisi başlatılamadı: {e}")
+    raise
 
 # Grok istemcisi
 try:
-    client_grok = OpenAI(api_key=os.getenv("GROK_API_KEY"), base_url="https://api.x.ai/v1", http_client=httpx.Client(proxies=None))
+    logging.debug(f"Grok API Key: {GROK_API_KEY[:5]}... (gizlendi)")
+    client_grok = OpenAI(api_key=GROK_API_KEY, base_url="https://api.x.ai/v1", http_client=httpx.Client(proxies=None))
     logging.info("Grok istemcisi başarıyla başlatıldı")
 except Exception as e:
     logging.error(f"Grok istemcisi başlatılamadı: {e}")
@@ -73,44 +54,41 @@ WEBSITE_URL = "https://soliumcoin.com"
 SALE_MESSAGE = f" Join with BNB now via Binance Web3 Wallet, KuCoin Web3 Wallet, or MetaMask! Explore: {WEBSITE_URL}"
 TEST_TWEET = f"{WEBSITE_URL} Test tweet for Solium Coin! @soliumcoin {SALE_MESSAGE} #Solium #Web3 #Crypto"
 
-def check_rate_limit(client):
+def check_rate_limit():
     try:
-        response = client.get_me()
-        rate_limit = response.meta.get('x-rate-limit-remaining', None)
-        reset_time = response.meta.get('x-rate-limit-reset', time.time() + 3600)
-        if rate_limit is not None:
-            logging.info(f"Rate limit kalan: {rate_limit}, sıfırlanma: {datetime.fromtimestamp(reset_time, timezone.utc)}")
+        response = api_x.rate_limit_status()
+        rate_limit = response['resources']['statuses']['/statuses/update']['remaining']
+        reset_time = response['resources']['statuses']['/statuses/update']['reset']
+        logging.info(f"Rate limit kalan: {rate_limit}, sıfırlanma: {datetime.fromtimestamp(reset_time, timezone.utc)}")
         return rate_limit, reset_time
     except Exception as e:
         logging.error(f"Rate limit kontrolü başarısız: {e}")
         return None, None
 
 def post_tweet():
-    for acc_idx, account in enumerate(accounts):
-        try:
-            rate_limit, reset_time = check_rate_limit(account["client"])
-            if rate_limit == 0:
-                wait_time = max(0, reset_time - time.time())
-                logging.info(f"{account['name']} rate limit aşıldı, {wait_time/3600:.1f} saat bekleniyor")
-                time.sleep(wait_time)
+    try:
+        rate_limit, reset_time = check_rate_limit()
+        if rate_limit == 0:
+            wait_time = max(0, reset_time - time.time())
+            logging.info(f"Rate limit aşıldı, {wait_time/3600:.1f} saat bekleniyor")
+            time.sleep(wait_time)
 
-            logging.info(f"{account['name']} tweet gönderiliyor...")
-            user = account["client"].get_me()
-            logging.info(f"{account['name']} authentication successful, user: {user.data.username}")
-
-            account["client"].create_tweet(text=TEST_TWEET)
-            logging.info(f"{account['name']} posted test tweet: {TEST_TWEET}")
-        except tweepy.TweepyException as e:
-            error_details = getattr(e, 'api_errors', str(e))
-            if "401" in str(e):
-                logging.error(f"{account['name']} kimlik doğrulama hatası: {e}, Detay: {error_details}")
-            elif "403" in str(e):
-                logging.error(f"{account['name']} yazma izni hatası: {e}, Detay: {error_details}")
-            elif "429" in str(e):
-                logging.error(f"{account['name']} oran sınırı aşıldı: {e}, Detay: {error_details}")
-                time.sleep(3600)
-            else:
-                logging.error(f"{account['name']} tweet hatası: {e}, Detay: {error_details}")
+        logging.info(f"Tweet gönderiliyor: {TEST_TWEET}")
+        response = api_x.update_status(status=TEST_TWEET)
+        logging.info(f"Tweet gönderildi, ID: {response.id}, Tweet: {TEST_TWEET}")
+    except tweepy.TweepyException as e:
+        error_details = getattr(e, 'api_errors', str(e))
+        if "401" in str(e):
+            logging.error(f"Kimlik doğrulama hatası: {e}, Detay: {error_details}")
+        elif "403" in str(e):
+            logging.error(f"Yazma izni hatası: {e}, Detay: {error_details}")
+        elif "429" in str(e):
+            logging.error(f"Oran sınırı aşıldı: {e}, Detay: {error_details}")
+            time.sleep(3600)
+        else:
+            logging.error(f"Tweet hatası: {e}, Detay: {error_details}")
+    except Exception as e:
+        logging.error(f"Genel hata: {e}")
 
 def schedule_tweets():
     scheduler = BackgroundScheduler(timezone="UTC")
