@@ -155,8 +155,8 @@ class SoliumBot:
             
         except Exception as e:
             if "rate limit" in str(e).lower():
-                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 901 saniye bekleniyor (12 dolarlık plan kotası doldu, kalan kredi: {12.33}$)...")
-                time.sleep(901)
+                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 891 saniye bekleniyor (12 dolarlık plan kotası doldu, kalan kredi: 12.33$)...")
+                time.sleep(891)
                 return self.generate_tweet_with_grok(account_name)  # Tekrar dene
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
             return (
@@ -215,7 +215,7 @@ class SoliumBot:
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
-                time.sleep(60)  # Hesaplar arasında 60 saniye bekle
+                time.sleep(300)  # Hesaplar arasında 5 dakika bekle
             except Exception as e:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
     
