@@ -9,35 +9,38 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 # Günlük kaydı (Türkiye saati, detaylı loglama)
 logging.basicConfig(
-    level=logging.DEBUG,  # DEBUG seviyesi ile her şeyi logla
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.FileHandler('solium_bot.log'), logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S %Z'
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Sabit anahtarlar (test için)
-API_KEY = "iiRTBkXqaD9wF8YKZQ6tHs8Yf"
-API_SECRET = "PVKXg0BpLnzgt6SR1H7V6ZkoYfkOmZ4QgrLxyuNZQn0MaAQ5V0"
-ACCESS_TOKEN = "1934310422313947136-5e9NS7zBWQeFhRSV1R84xFEb0qtsH9"
-ACCESS_TOKEN_SECRET = "9PjYP8JH2MOCPI8LxkzCRSeUW7pGRNvgxgn2GvqcN87h6"
-GROK_API_KEY = "xai-v142BjDnVMg7mfZIJkTzf0d29gux3hEOoiiNvmgZtyB05Oi8fVn5P417P9wNReOue9URTXkGOM1jsCMm"  # Mevcut Config Vars’tan alındı
+# Sabit anahtarlar (Generate sonrası güncelle)
+CLIENT_ID = "dkdaZVhiVlYzd2EtcUFpMDZOS1A6MTpchaQ"
+CLIENT_SECRET = "MxkrwY17gpQa47tqoZz9uGL-ZlsII8zVLHWw3vZNtq_vTHqL0m"  # Verdiğin Client Secret
+ACCESS_TOKEN = "1934310422313947136-5e9NS7zBWQeFhRSV1R84xFEb0qtsH9"  # Generate ile değiştir
+ACCESS_TOKEN_SECRET = "9PjYP8JH2MOCPI8LxkzCRSeUW7pGRNvgxgn2GvqcN87h6"  # Generate ile değiştir
+GROK_API_KEY = "xai-v142BjDnVMg7mfZIJkTzf0d29gux3hEOoiiNvmgZtyB05Oi8fVn5P417P9wNReOue9URTXkGOM1jsCMm"
 
-# Twitter API v1.1 istemcisi (OAuth 1.0a)
+# Twitter API v2 istemcisi (OAuth 2.0)
 try:
-    logging.debug(f"API Key: {API_KEY[:5]}... (gizlendi)")
-    logging.debug(f"API Secret: {API_SECRET[:5]}... (gizlendi)")
+    logging.debug(f"Client ID: {CLIENT_ID[:5]}... (gizlendi)")
+    logging.debug(f"Client Secret: {CLIENT_SECRET[:5]}... (gizlendi)")
     logging.debug(f"Access Token: {ACCESS_TOKEN[:5]}... (gizlendi)")
     logging.debug(f"Access Token Secret: {ACCESS_TOKEN_SECRET[:5]}... (gizlendi)")
     
-    auth = tweepy.OAuth1UserHandler(API_KEY, API_SECRET)
-    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
-    api_x = tweepy.API(auth, wait_on_rate_limit=True)
-    logging.info("Twitter API v1.1 istemcisi başarıyla başlatıldı")
-    user = api_x.verify_credentials()
-    logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {user.screen_name}")
+    client_x = tweepy.Client(
+        consumer_key=CLIENT_ID,
+        consumer_secret=CLIENT_SECRET,
+        access_token=ACCESS_TOKEN,
+        access_token_secret=ACCESS_TOKEN_SECRET
+    )
+    logging.info("Twitter API v2 istemcisi başarıyla başlatıldı")
+    user = client_x.get_me()
+    logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {user.data.username}")
 except Exception as e:
-    logging.error(f"Twitter API istemcisi başlatılamadı: {e}")
+    logging.error(f"Twitter API v2 istemcisi başlatılamadı: {e}")
     raise
 
 # Grok istemcisi
@@ -54,11 +57,11 @@ WEBSITE_URL = "https://soliumcoin.com"
 SALE_MESSAGE = f" Join with BNB now via Binance Web3 Wallet, KuCoin Web3 Wallet, or MetaMask! Explore: {WEBSITE_URL}"
 TEST_TWEET = f"{WEBSITE_URL} Test tweet for Solium Coin! @soliumcoin {SALE_MESSAGE} #Solium #Web3 #Crypto"
 
-def check_rate_limit():
+def check_rate_limit(client):
     try:
-        response = api_x.rate_limit_status()
-        rate_limit = response['resources']['statuses']['/statuses/update']['remaining']
-        reset_time = response['resources']['statuses']['/statuses/update']['reset']
+        response = client.get_me()
+        rate_limit = response.meta.get('x-rate-limit-remaining', None)
+        reset_time = response.meta.get('x-rate-limit-reset', time.time() + 3600)
         logging.info(f"Rate limit kalan: {rate_limit}, sıfırlanma: {datetime.fromtimestamp(reset_time, timezone.utc)}")
         return rate_limit, reset_time
     except Exception as e:
@@ -67,15 +70,15 @@ def check_rate_limit():
 
 def post_tweet():
     try:
-        rate_limit, reset_time = check_rate_limit()
+        rate_limit, reset_time = check_rate_limit(client_x)
         if rate_limit == 0:
             wait_time = max(0, reset_time - time.time())
             logging.info(f"Rate limit aşıldı, {wait_time/3600:.1f} saat bekleniyor")
             time.sleep(wait_time)
 
         logging.info(f"Tweet gönderiliyor: {TEST_TWEET}")
-        response = api_x.update_status(status=TEST_TWEET)
-        logging.info(f"Tweet gönderildi, ID: {response.id}, Tweet: {TEST_TWEET}")
+        response = client_x.create_tweet(text=TEST_TWEET)
+        logging.info(f"Tweet gönderildi, ID: {response.data['id']}, Tweet: {TEST_TWEET}")
     except tweepy.TweepyException as e:
         error_details = getattr(e, 'api_errors', str(e))
         if "401" in str(e):
