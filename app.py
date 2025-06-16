@@ -110,20 +110,20 @@ class SoliumBot:
         prompts = {
             "X": (
                 "Write a professional English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Focus on blockchain innovation, technology leadership, and real-world use cases. "
-                "Include a subtle mention of the ongoing presale. End with 'Follow @soliumcoin'. "
-                "No hashtags, avoid hype, keep it factual and engaging."
+                "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
+                "Clearly mention joining the ongoing presale. End with 'Follow @soliumcoin'. "
+                "No hashtags, avoid hype, keep it factual."
             ),
             "X2": (
                 "Write a community-focused English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Highlight the growing SoliumArmy, community benefits, and how to participate in the presale. "
-                "Use friendly, inclusive language. End with 'Follow @soliumcoin'. "
-                "No hashtags, keep it inviting."
+                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale participation benefits. "
+                "Use friendly tone. End with 'Follow @soliumcoin'. "
+                "No hashtags, keep it inclusive."
             ),
             "X3": (
-                "Write an exciting but realistic English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Emphasize the presale opportunity, growth potential, and roadmap milestones. "
-                "Use energetic but professional tone. End with 'Follow @soliumcoin'. "
+                "Write an energetic English tweet for SoliumCoin, exactly 220-240 characters. "
+                "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
+                "Use professional but exciting tone. End with 'Follow @soliumcoin'. "
                 "No hashtags, avoid exaggeration."
             )
         }
@@ -142,7 +142,7 @@ class SoliumBot:
             
             tweet = response.choices[0].message.content.strip()
             
-            # Tweet'in formatını kontrol et
+            # Tweet formatını zorla
             if not tweet.startswith("soliumcoin.com"):
                 tweet = f"soliumcoin.com {tweet[:200]}"
             if not tweet.endswith("Follow @soliumcoin"):
@@ -193,13 +193,14 @@ class SoliumBot:
             app_limit_remaining = headers.get('x-app-limit-24hour-remaining', 'N/A')
             user_limit_remaining = headers.get('x-user-limit-24hour-remaining', 'N/A')
             if app_limit_remaining == '0' or user_limit_remaining == '0':
-                reset_time = int(headers.get('x-app-limit-24hour-reset', time.time() + 86400))
-                wait_time = max(reset_time - time.time(), 60)
+                reset_time = int(headers.get('x-app-limit-24hour-reset', time.time() + 7200))
+                wait_time = 7200  # 2 saat bekle
                 logging.warning(
                     f"{account_name} için Twitter 24 saatlik kota doldu (App: {app_limit_remaining}, User: {user_limit_remaining}), "
                     f"{wait_time:.1f} saniye bekleniyor (sıfırlama: {datetime.fromtimestamp(reset_time, tz=timezone(timedelta(hours=3)))}): {e}"
                 )
                 time.sleep(wait_time)
+                return self.post_tweet(account_name)  # 2 saat sonra tekrar dene
             else:
                 reset_time = int(headers.get('x-rate-limit-reset', time.time() + 900))
                 wait_time = max(reset_time - time.time(), 15)
@@ -208,7 +209,7 @@ class SoliumBot:
                     f"Headers: {headers}"
                 )
                 time.sleep(wait_time)
-            return False
+                return False
         except tweepy.errors.Forbidden as e:
             logging.error(
                 f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. "
