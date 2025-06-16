@@ -22,21 +22,6 @@ HASHTAGS = [
     "#Presale", "#DeFi", "#CryptoFuture", "#JoinTheFuture"
 ]
 
-# Ortam değişkenlerini set et (test için, production’da Heroku Config Vars’tan çekilmeli)
-os.environ["X_API_KEY"] 
-os.environ["X_SECRET_KEY"] 
-os.environ["X_ACCESS_TOKEN"]  
-os.environ["X_ACCESS_SECRET"] 
-os.environ["X2_API_KEY"] 
-os.environ["X2_SECRET_KEY"] 
-os.environ["X2_ACCESS_TOKEN"] 
-os.environ["X2_ACCESS_SECRET"] 
-os.environ["X3_API_KEY"] 
-os.environ["X3_SECRET_KEY"]
-os.environ["X3_ACCESS_TOKEN"] 
-os.environ["X3_ACCESS_SECRET"] 
-os.environ["GROK_API_KEY"] 
-
 # Twitter API v2 istemcilerini başlat
 clients = {
     "X": None,
@@ -68,7 +53,7 @@ def generate_tweet_content():
             "invites people to join the presale, emphasizes Web3's future, and avoids exaggerated promises "
             "(e.g., no 'get rich quick' claims). Use a calm, persuasive tone like 'Web3's future is here, "
             "don't miss out!' or 'Join us, or we're one person short!'. End with 'Follow @soliumcoin'. "
-            "Do not include hashtags in the content, they will be added separately. Keep it under 240 characters."
+            "Do not include hashtags in the content, they will be added separately. Aim for 260-270 characters to fill the tweet."
         )
         response = requests.post(
             "https://api.x.ai/v1/grok/generate",
@@ -79,16 +64,32 @@ def generate_tweet_content():
         tweet = response.json().get("text", "").strip()
         # Hashtag ekle
         selected_hashtags = random.sample(HASHTAGS, 3)
-        tweet = f"{tweet} {' '.join(selected_hashtags)}"
-        if len(tweet) > 280:
+        hashtag_str = " ".join(selected_hashtags)
+        tweet = f"{tweet} {hashtag_str}"
+        # 280 karaktere doldur
+        current_length = len(tweet)
+        if current_length < 280:
+            padding = " " * (280 - current_length - 3) + "..."
+            tweet = f"{tweet}{padding}"
+        elif current_length > 280:
             tweet = tweet[:277] + "..."  # Twitter karakter limiti
         return tweet
     except Exception as e:
         logging.error(f"Grok tweet üretimi hatası: {e}")
-        return (
-            "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
-            + " ".join(random.sample(HASHTAGS, 3))
+        default_tweet = (
+            "soliumcoin.com Join the Web3 future with our presale! Be part of something big with SoliumCoin. "
+            "The decentralized world is evolving, don’t miss your chance to shape it. Follow @soliumcoin "
         )
+        selected_hashtags = random.sample(HASHTAGS, 3)
+        hashtag_str = " ".join(selected_hashtags)
+        tweet = f"{default_tweet}{hashtag_str}"
+        current_length = len(tweet)
+        if current_length < 280:
+            padding = " " * (280 - current_length - 3) + "..."
+            tweet = f"{tweet}{padding}"
+        elif current_length > 280:
+            tweet = tweet[:277] + "..."  # Twitter karakter limiti
+        return tweet
 
 # Tweet gönder
 def post_tweet(account_name, client):
@@ -101,6 +102,10 @@ def post_tweet(account_name, client):
         tweet_text = generate_tweet_content()
         response = client.create_tweet(text=tweet_text)
         logging.info(f"{account_name} tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
+    except tweepy.errors.TooManyRequests as e:
+        logging.warning(f"{account_name} API limitine takıldı, 96 dakika sonra tekrar denenecek: {e}")
+        time.sleep(5760)  # 96 dakika bekle
+        post_tweet(account_name, client)  # Tekrar dene
     except Exception as e:
         logging.error(f"{account_name} tweet gönderim hatası: {e}")
 
