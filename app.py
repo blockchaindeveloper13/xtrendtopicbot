@@ -19,9 +19,9 @@ logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hour
 
 # Çevre değişkenleri kontrol (3 hesap için)
 required_env_vars = [
-    "ACCOUNT1_X_API_KEY", "ACCOUNT1_X_SECRET_KEY", "ACCOUNT1_X_ACCESS_TOKEN", "ACCOUNT1_X_ACCESS_SECRET",
-    "ACCOUNT2_X_API_KEY", "ACCOUNT2_X_SECRET_KEY", "ACCOUNT2_X_ACCESS_TOKEN", "ACCOUNT2_X_ACCESS_SECRET",
-    "ACCOUNT3_X_API_KEY", "ACCOUNT3_X_SECRET_KEY", "ACCOUNT3_X_ACCESS_TOKEN", "ACCOUNT3_X_ACCESS_SECRET",
+    "ACCOUNT1_API_KEY", "ACCOUNT1_API_SECRET", "ACCOUNT1_ACCESS_TOKEN", "ACCOUNT1_ACCESS_TOKEN_SECRET",
+    "ACCOUNT2_API_KEY", "ACCOUNT2_API_SECRET", "ACCOUNT2_ACCESS_TOKEN", "ACCOUNT2_ACCESS_TOKEN_SECRET",
+    "ACCOUNT3_API_KEY", "ACCOUNT3_API_SECRET", "ACCOUNT3_ACCESS_TOKEN", "ACCOUNT3_ACCESS_TOKEN_SECRET",
     "GROK_API_KEY"
 ]
 for var in required_env_vars:
@@ -33,28 +33,28 @@ for var in required_env_vars:
 accounts = [
     {
         "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT1_X_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT1_X_SECRET_KEY"),
-            access_token=os.getenv("ACCOUNT1_X_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT1_X_ACCESS_SECRET")
+            consumer_key=os.getenv("ACCOUNT1_API_KEY"),
+            consumer_secret=os.getenv("ACCOUNT1_API_SECRET"),
+            access_token=os.getenv("ACCOUNT1_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("ACCOUNT1_ACCESS_TOKEN_SECRET")
         ),
         "name": "Account1"
     },
     {
         "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT2_X_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT2_X_SECRET_KEY"),
-            access_token=os.getenv("ACCOUNT2_X_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT2_X_ACCESS_SECRET")
+            consumer_key=os.getenv("ACCOUNT2_API_KEY"),
+            consumer_secret=os.getenv("ACCOUNT2_API_SECRET"),
+            access_token=os.getenv("ACCOUNT2_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("ACCOUNT2_ACCESS_TOKEN_SECRET")
         ),
         "name": "Account2"
     },
     {
         "client": tweepy.Client(
-            consumer_key=os.getenv("ACCOUNT3_X_API_KEY"),
-            consumer_secret=os.getenv("ACCOUNT3_X_SECRET_KEY"),
-            access_token=os.getenv("ACCOUNT3_X_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("ACCOUNT3_X_ACCESS_SECRET")
+            consumer_key=os.getenv("ACCOUNT3_API_KEY"),
+            consumer_secret=os.getenv("ACCOUNT3_API_SECRET"),
+            access_token=os.getenv("ACCOUNT3_ACCESS_TOKEN"),
+            access_token_secret=os.getenv("ACCOUNT3_ACCESS_TOKEN_SECRET")
         ),
         "name": "Account3"
     }
