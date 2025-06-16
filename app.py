@@ -1,4 +1,5 @@
 import requests
+import oauthlib.oauth1
 import time
 import logging
 from datetime import datetime, timezone, timedelta
@@ -13,25 +14,35 @@ logging.basicConfig(
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Sabit anahtarlar (Bearer Token ile güncelle)
-BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAAG8T2gEAAAAAdVU0omc5GExmpNoZOc1X4TSa8x4%3DM36r3ol9i2MMB9SWxdhaNAENzF5ijpGDQZ78w0zELzo5ZkfF4K"  # Mevcut, yenilenebilir
+# Sabit anahtarlar (yeni Generate edilenler)
+CLIENT_ID = "OGhxeFZQQzJwSkFZdUw1M3FXQlU6MTpjaQ"
+CLIENT_SECRET = "GKULoRy2CCdO6R-My_8wf5etL46zDIoEVqotNakXrBRoJN5FE9"
+ACCESS_TOKEN = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"
+ACCESS_TOKEN_SECRET = "7w9o3C35gVv1EMpdaczIJkRsqCFNRPeXmkPvSus6xXukC"
 
 # Twitter API v2 endpoint'leri
 BASE_URL = "https://api.twitter.com/2"
 GET_ME_URL = f"{BASE_URL}/users/me"
 POST_TWEET_URL = f"{BASE_URL}/tweets"
 
-# Headers for Bearer Token
-HEADERS = {
-    "Authorization": f"Bearer {BEARER_TOKEN}"
-}
+# OAuth 1.0a authentication
+def get_oauth1_headers():
+    auth = oauthlib.oauth1.Client(
+        client_key=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        resource_owner_key=ACCESS_TOKEN,
+        resource_owner_secret=ACCESS_TOKEN_SECRET
+    )
+    uri, headers, body = auth.sign(POST_TWEET_URL, http_method='POST', body='{"text": "Bu bir test mesajıdır"}')
+    return headers
 
 # Test tweet'i gönder
 def post_tweet():
     try:
         # Kimlik doğrulama testi (get_me)
+        auth_headers = get_oauth1_headers()
         logging.info(f"Kimlik doğrulama isteği yapılıyor: {GET_ME_URL}")
-        response = requests.get(GET_ME_URL, headers=HEADERS)
+        response = requests.get(GET_ME_URL, headers=auth_headers)
         logging.debug(f"Kimlik doğrulama yanıtı: {response.status_code} - {response.text}")
         if response.status_code == 200:
             logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {response.json().get('data', {}).get('username')}")
@@ -41,8 +52,9 @@ def post_tweet():
 
         # Tweet gönder
         tweet_data = {"text": "Bu bir test mesajıdır"}
+        headers = get_oauth1_headers()
         logging.info(f"Tweet gönderiliyor: {tweet_data['text']}")
-        response = requests.post(POST_TWEET_URL, headers=HEADERS, json=tweet_data)
+        response = requests.post(POST_TWEET_URL, headers=headers, json=tweet_data)
         logging.debug(f"Tweet yanıtı: {response.status_code} - {response.text}")
         if response.status_code == 201:
             tweet_id = response.json().get('data', {}).get('id')
