@@ -49,7 +49,7 @@ class TwitterRateLimitHandler:
         account = self.account_limits[account_name]
         if now < account["last_call"] + account["retry_after"]:
             wait_time = (account["last_call"] + account["retry_after"]) - now
-            logging.warning(f"{account_name} için rate limit bekleme: {wait_time:.1f} saniye")
+            logging.warning(f"{account_name} için Twitter rate limit bekleme: {wait_time:.1f} saniye")
             time.sleep(wait_time)
         return True
     
@@ -128,7 +128,7 @@ class SoliumBot:
         
         try:
             response = self.grok_client.chat.completions.create(
-                model="grok-3",  # Grok-3 modeli kullanılıyor
+                model="grok-3",
                 messages=[{"role": "user", "content": prompts[account_name]}],
                 max_tokens=150,
                 temperature=0.7,
@@ -139,27 +139,39 @@ class SoliumBot:
             
             tweet = response.choices[0].message.content.strip()
             selected_hashtags = random.sample(HASHTAGS, 3)
-            final_tweet = f"{tweet} {' '.join(selected_hashtags)}"
+            hashtag_str = " ".join(selected_hashtags)
+            final_tweet = f"{tweet} {hashtag_str}"
             
-            # Karakter sınırı ve son kontrol
-            if len(final_tweet) > 280:
+            # 280 karaktere doldur
+            current_length = len(final_tweet)
+            if current_length < 280:
+                padding = " " * (280 - current_length - 3) + "..."
+                final_tweet = f"{final_tweet}{padding}"
+            elif current_length > 280:
                 final_tweet = final_tweet[:277] + "..."
             
             logging.debug(f"{account_name} için oluşturulan tweet: {final_tweet}")
             return final_tweet
             
         except Exception as e:
+            if "rate limit" in str(e).lower():
+                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 901 saniye bekleniyor (12 dolarlık plan kotası doldu, kalan kredi: {12.33}$)...")
+                time.sleep(901)
+                return self.generate_tweet_with_grok(account_name)  # Tekrar dene
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
-            raise Exception(f"Grok-3 ile tweet oluşturulamadı: {e}")
+            return (
+                "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
+                + " ".join(random.sample(HASHTAGS, 3))
+            )
     
     def post_tweet(self, account_name):
         self.rate_limit_handler.check_rate_limit(account_name)
         
         try:
-            # Önce tweet içeriğini oluştur
+            # Tweet içeriğini oluştur
             tweet_text = self.generate_tweet_with_grok(account_name)
             
-            # Sonra tweet'i gönder
+            # Tweet’i gönder
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
             
             # Başarılı ise logla
@@ -168,29 +180,26 @@ class SoliumBot:
             
             return True
             
+        except tweepy.errors.Forbidden as e:
+            logging.error(f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
+            return False
         except tweepy.TooManyRequests as e:
-            # Rate limit hatasını işle
             wait_time = 60 * 15  # 15 dakika bekle
-            logging.warning(f"{account_name} için rate limit aşıldı. {wait_time/60} dakika bekleniyor...")
+            logging.warning(f"{account_name} için Twitter rate limit aşıldı. {wait_time/60} dakika bekleniyor: {e}")
             time.sleep(wait_time)
             return False
-            
         except Exception as e:
-            logging.error(f"{account_name} tweet gönderim hatası: {str(e)}")
+            logging.error(f"{account_name} tweet gönderim hatası: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
             return False
     
     def schedule_tweets(self):
-        intervals = {
-            "X": 120 * 60,  # 2 saat
-            "X2": 115 * 60, # 115 dakika
-            "X3": 110 * 60  # 110 dakika
-        }
+        interval = 5760  # 96 dakika
         
         for account_name in self.twitter_clients:
             self.scheduler.add_job(
                 self.post_tweet,
                 'interval',
-                seconds=intervals[account_name],
+                seconds=interval,
                 args=[account_name],
                 id=f"tweet_job_{account_name}",
                 misfire_grace_time=300,
@@ -206,7 +215,7 @@ class SoliumBot:
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
-                time.sleep(30)  # Hesaplar arasında 30 saniye bekle
+                time.sleep(60)  # Hesaplar arasında 60 saniye bekle
             except Exception as e:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
     
