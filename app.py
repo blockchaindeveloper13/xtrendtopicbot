@@ -40,8 +40,9 @@ def post_tweet():
         me = client_x.get_me()
         logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {me.data.username}")
         
-        # Tweet gönder
-        tweet_text = "Bu bir test mesajıdır"
+        # Benzersiz tweet içeriği (zaman damgası ile)
+        timestamp = datetime.now(timezone(timedelta(hours=3))).strftime("%H:%M:%S")
+        tweet_text = f"Bu bir test mesajıdır - {timestamp}"
         response = client_x.create_tweet(text=tweet_text)
         logging.info(f"Tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
     except Exception as e:
