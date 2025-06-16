@@ -14,11 +14,11 @@ logging.basicConfig(
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Ortam değişkenlerini ayarla (örnek, production'da .env dosyasından alınmalı)
-os.environ["X_API_KEY"] = "OGhxeFZQQzJwSkFZdUw1M3FXQlU6MTpjaQ"
-os.environ["X_SECRET_KEY"] = "GKULoRy2CCdO6R-My_8wf5etL46zDIoEVqotNakXrBRoJN5FE9"
-os.environ["X_ACCESS_TOKEN"] = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"
-os.environ["X_ACCESS_SECRET"] = "7w9o3C35gVv1EMpdaczIJkRsqCFNRPeXmkPvSus6xXukC"
+# Ortam değişkenlerini ayarla (production'da Heroku config'den alınmalı)
+os.environ["X_API_KEY"] = "NyNa2C6mMipndxv4JaBDzQuff"
+os.environ["X_SECRET_KEY"] = "LRd8CAm7ln3frXkCsLjQUh7j7imxf1Cqw2UZZk6jdC1rvEvVQC"
+os.environ["X_ACCESS_TOKEN"] = "1934310422313947136-Vhy6BjfCO9l8wkdTQCpYi3UkpyhrHy"
+os.environ["X_ACCESS_SECRET"] = "SnecmKFCYvPaIWbO7FGOHsaOTWyhWhiXoKMuNdl9orWeC"
 
 # Twitter API v2 istemcisi
 try:
@@ -28,14 +28,6 @@ try:
         access_token=os.getenv("X_ACCESS_TOKEN"),
         access_token_secret=os.getenv("X_ACCESS_SECRET")
     )
-    # Twitter API v1.1 istemcisi (isteğe bağlı, burada kullanmayacağız)
-    auth = tweepy.OAuth1UserHandler(
-        consumer_key=os.getenv("X_API_KEY"),
-        consumer_secret=os.getenv("X_SECRET_KEY"),
-        access_token=os.getenv("X_ACCESS_TOKEN"),
-        access_token_secret=os.getenv("X_ACCESS_SECRET")
-    )
-    api_x = tweepy.API(auth, wait_on_rate_limit=True)
     logging.info("X API istemcileri başarıyla başlatıldı")
 except Exception as e:
     logging.error(f"X API istemcileri başlatılamadı: {e}")
