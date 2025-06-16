@@ -4,7 +4,6 @@ import time
 import logging
 from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-import random
 import httpx
 from openai import OpenAI
 
@@ -17,24 +16,8 @@ logging.basicConfig(
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Hashtag havuzu
-HASHTAGS = [
-    "#Solium", "#SoliumArmy", "#Web3", "#DeFi", "#Crypto", "#Cryptocurrency",
-    "#Cryptocurrencies", "#Blockchain", "#BlockchainTechnology", "#CryptoNews",
-    "#CryptocurrencyNews", "#CryptoMarket", "#Cryptotrading", "#CryptoInvestor",
-    "#Cryptoworld", "#Cryptolife", "#CryptoCommunity", "#Cryptomemes", "#Bitcoin",
-    "#BTC", "#Ethereum", "#ETH", "#Binance", "#BNB", "#Solana", "#SOL", "#Ripple",
-    "#XRP", "#Litecoin", "#LTC", "#Dogecoin", "#DOGE", "#Cardano", "#ADA",
-    "#Polkadot", "#DOT", "#Chainlink", "#LINK", "#DAO", "#Decentralized",
-    "#DecentralizedFinance", "#YieldFarming", "#Staking", "#NFT", "#NFTs",
-    "#NFTArt", "#Metaverse", "#CryptoArt", "#NFTCommunity", "#Trading",
-    "#CryptocurrencyTrading", "#Altcoin", "#Altcoins", "#HODL", "#CryptoExchange",
-    "#BinanceFutures", "#Coinbase", "#KuCoin", "#Kraken", "#CryptoTwitter",
-    "#BitcoinCommunity", "#EthereumCommunity", "#SolanaCommunity", "#BSC",
-    "#MemeCoin", "#CryptoEvents", "#Invest", "#Investing", "#Investment",
-    "#FinancialFreedom", "#PassiveIncome", "#CryptoInvesting", "#BullRun",
-    "#BearMarket", "#Dubai", "#Innovation"
-]
+# Sabit hashtag’ler
+HASHTAGS = ["#bitcoin", "#binance", "#mexc"]
 
 class TwitterRateLimitHandler:
     def __init__(self):
@@ -111,20 +94,20 @@ class SoliumBot:
             "X": (
                 "Write a professional English tweet for SoliumCoin, exactly 220-240 characters. "
                 "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
-                "Clearly mention joining the ongoing presale. End with 'Follow @soliumcoin'. "
-                "No hashtags, avoid hype, keep it factual."
+                "Clearly state 'Join our presale now' to emphasize the ongoing presale. "
+                "End with 'Follow @soliumcoin'. No hashtags, avoid hype, keep it factual."
             ),
             "X2": (
                 "Write a community-focused English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale participation benefits. "
-                "Use friendly tone. End with 'Follow @soliumcoin'. "
+                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and benefits of joining the presale. "
+                "Include 'Join our presale now'. Use friendly tone. End with 'Follow @soliumcoin'. "
                 "No hashtags, keep it inclusive."
             ),
             "X3": (
                 "Write an energetic English tweet for SoliumCoin, exactly 220-240 characters. "
                 "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
-                "Use professional but exciting tone. End with 'Follow @soliumcoin'. "
-                "No hashtags, avoid exaggeration."
+                "Include 'Join our presale now'. Use professional but exciting tone. "
+                "End with 'Follow @soliumcoin'. No hashtags, avoid exaggeration."
             )
         }
         
@@ -147,6 +130,8 @@ class SoliumBot:
                 tweet = f"soliumcoin.com {tweet[:200]}"
             if not tweet.endswith("Follow @soliumcoin"):
                 tweet = tweet[:200] + " Follow @soliumcoin"
+            if "Join our presale now" not in tweet:
+                tweet = tweet[:180] + " Join our presale now." + tweet[-17:]
             
             # 220-240 karaktere ayarla
             current_length = len(tweet)
@@ -156,9 +141,8 @@ class SoliumBot:
             elif current_length > 240:
                 tweet = tweet[:237] + "..."
             
-            selected_hashtags = random.sample(HASHTAGS, 3)
-            hashtag_str = " ".join(selected_hashtags)
-            final_tweet = f"{tweet} {hashtag_str}"
+            hashtag_str = " #bitcoin #binance #mexc"
+            final_tweet = f"{tweet}{hashtag_str}"
             
             logging.info(f"{account_name} için üretilen tweet içeriği: {final_tweet}")
             return final_tweet
@@ -170,8 +154,7 @@ class SoliumBot:
                 return self.generate_tweet_with_grok(account_name)
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
             return (
-                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
-                + " ".join(random.sample(HASHTAGS, 3))
+                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin #bitcoin #binance #mexc"
             )
     
     def post_tweet(self, account_name):
