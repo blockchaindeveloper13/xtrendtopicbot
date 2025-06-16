@@ -94,19 +94,19 @@ class SoliumBot:
             "X": (
                 "Write a professional English tweet for SoliumCoin, exactly 220-240 characters. "
                 "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
-                "Clearly state 'Join our presale now' to emphasize the ongoing presale. "
-                "End with 'Follow @soliumcoin'. No hashtags, avoid hype, keep it factual."
+                "Include 'Don’t miss our presale!' to emphasize the ongoing presale. "
+                "End with 'Follow @soliumcoin'. No hashtags, keep it factual."
             ),
             "X2": (
                 "Write a community-focused English tweet for SoliumCoin, exactly 220-240 characters. "
-                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and benefits of joining the presale. "
-                "Include 'Join our presale now'. Use friendly tone. End with 'Follow @soliumcoin'. "
+                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale participation benefits. "
+                "Include 'Don’t miss our presale!'. Use friendly tone. End with 'Follow @soliumcoin'. "
                 "No hashtags, keep it inclusive."
             ),
             "X3": (
                 "Write an energetic English tweet for SoliumCoin, exactly 220-240 characters. "
                 "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
-                "Include 'Join our presale now'. Use professional but exciting tone. "
+                "Include 'Don’t miss our presale!'. Use exciting but professional tone. "
                 "End with 'Follow @soliumcoin'. No hashtags, avoid exaggeration."
             )
         }
@@ -127,11 +127,11 @@ class SoliumBot:
             
             # Tweet formatını zorla
             if not tweet.startswith("soliumcoin.com"):
-                tweet = f"soliumcoin.com {tweet[:200]}"
+                tweet = f"soliumcoin.com {tweet[:180]}"
             if not tweet.endswith("Follow @soliumcoin"):
                 tweet = tweet[:200] + " Follow @soliumcoin"
-            if "Join our presale now" not in tweet:
-                tweet = tweet[:180] + " Join our presale now." + tweet[-17:]
+            if "Don’t miss our presale!" not in tweet:
+                tweet = tweet[:180] + " Don’t miss our presale!" + tweet[-17:]
             
             # 220-240 karaktere ayarla
             current_length = len(tweet)
@@ -144,6 +144,10 @@ class SoliumBot:
             hashtag_str = " #bitcoin #binance #mexc"
             final_tweet = f"{tweet}{hashtag_str}"
             
+            # Karakter sayısını kontrol et
+            if len(final_tweet) > 280:
+                final_tweet = final_tweet[:277] + "..."
+            
             logging.info(f"{account_name} için üretilen tweet içeriği: {final_tweet}")
             return final_tweet
             
@@ -154,7 +158,7 @@ class SoliumBot:
                 return self.generate_tweet_with_grok(account_name)
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
             return (
-                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin #bitcoin #binance #mexc"
+                f"soliumcoin.com Join the Web3 future! Don’t miss our presale! Follow @soliumcoin #bitcoin #binance #mexc"
             )
     
     def post_tweet(self, account_name):
@@ -224,7 +228,7 @@ class SoliumBot:
     
     def run_initial_tweets(self):
         logging.info("Başlangıç tweetleri gönderiliyor (Grok-3 ile)...")
-        for account_name in self.twitter_clients:
+        for account_name in self.twitter_clients.keys():  # Tüm hesapları dolaş
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
