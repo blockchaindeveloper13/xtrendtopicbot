@@ -1,4 +1,4 @@
-import tweepy
+import requests
 import time
 import logging
 from datetime import datetime, timezone, timedelta
@@ -16,69 +16,50 @@ logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hour
 # Sabit anahtarlar (yeni Generate edilenler)
 CLIENT_ID = "OGhxeFZQQzJwSkFZdUw1M3FXQlU6MTpjaQ"
 CLIENT_SECRET = "GKULoRy2CCdO6R-My_8wf5etL46zDIoEVqotNakXrBRoJN5FE9"
-API_KEY = "nbht5XOoYZ7c7Xs1ApKv6qu3Y"
-API_SECRET = "QhlrVfp95GkD2ZvXBQJll2gD0hQybmWCTGUJhrOfsLH5CADJEB"
 ACCESS_TOKEN = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"
 ACCESS_TOKEN_SECRET = "7w9o3C35gVv1EMpdaczIJkRsqCFNRPeXmkPvSus6xXukC"
 
-# Twitter API v2 istemcisi (OAuth 2.0)
-try:
-    logging.debug(f"Client ID: {CLIENT_ID[:5]}... (gizlendi)")
-    logging.debug(f"Client Secret: {CLIENT_SECRET[:5]}... (gizlendi)")
-    logging.debug(f"API Key: {API_KEY[:5]}... (gizlendi)")
-    logging.debug(f"API Secret: {API_SECRET[:5]}... (gizlendi)")
-    logging.debug(f"Access Token: {ACCESS_TOKEN[:5]}... (gizlendi)")
-    logging.debug(f"Access Token Secret: {ACCESS_TOKEN_SECRET[:5]}... (gizlendi)")
-    
-    client_x = tweepy.Client(
-        consumer_key=CLIENT_ID,
-        consumer_secret=CLIENT_SECRET,
-        access_token=ACCESS_TOKEN,
-        access_token_secret=ACCESS_TOKEN_SECRET
+# Twitter API v2 endpoint'leri
+BASE_URL = "https://api.twitter.com/2"
+GET_ME_URL = f"{BASE_URL}/users/me"
+POST_TWEET_URL = f"{BASE_URL}/tweets"
+
+# OAuth 1.0a authentication (v2 için geçici çözüm)
+def get_oauth1_headers():
+    import oauthlib.oauth1
+    auth = oauthlib.oauth1.Client(
+        client_key=CLIENT_ID,
+        client_secret=CLIENT_SECRET,
+        resource_owner_key=ACCESS_TOKEN,
+        resource_owner_secret=ACCESS_TOKEN_SECRET
     )
-    logging.info("Twitter API v2 istemcisi başarıyla başlatıldı")
-    user = client_x.get_me()
-    logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {user.data.username}")
-except Exception as e:
-    logging.error(f"Twitter API v2 istemcisi başlatılamadı: {e}")
-    raise
+    uri, headers, body = auth.sign(GET_ME_URL)
+    return headers
 
-# Sabitler
-TEST_TWEET = "Bu bir test mesajıdır"
-
-def check_rate_limit(client):
-    try:
-        response = client.get_me()
-        rate_limit = response.meta.get('x-rate-limit-remaining', None)
-        reset_time = response.meta.get('x-rate-limit-reset', time.time() + 3600)
-        logging.info(f"Rate limit kalan: {rate_limit}, sıfırlanma: {datetime.fromtimestamp(reset_time, timezone.utc)}")
-        return rate_limit, reset_time
-    except Exception as e:
-        logging.error(f"Rate limit kontrolü başarısız: {e}")
-        return None, None
-
+# Test tweet'i gönder
 def post_tweet():
     try:
-        rate_limit, reset_time = check_rate_limit(client_x)
-        if rate_limit == 0:
-            wait_time = max(0, reset_time - time.time())
-            logging.info(f"Rate limit aşıldı, {wait_time/3600:.1f} saat bekleniyor")
-            time.sleep(wait_time)
-
-        logging.info(f"Tweet gönderiliyor: {TEST_TWEET}")
-        response = client_x.create_tweet(text=TEST_TWEET)
-        logging.info(f"Tweet gönderildi, ID: {response.data['id']}, Tweet: {TEST_TWEET}")
-    except tweepy.TweepyException as e:
-        error_details = getattr(e, 'api_errors', str(e))
-        if "401" in str(e):
-            logging.error(f"Kimlik doğrulama hatası: {e}, Detay: {error_details}")
-        elif "403" in str(e):
-            logging.error(f"Yazma izni hatası: {e}, Detay: {error_details}")
-        elif "429" in str(e):
-            logging.error(f"Oran sınırı aşıldı: {e}, Detay: {error_details}")
-            time.sleep(3600)
+        # Kimlik doğrulama testi (get_me)
+        headers = get_oauth1_headers()
+        logging.info(f"Kimlik doğrulama isteği yapılıyor: {GET_ME_URL}")
+        response = requests.get(GET_ME_URL, headers=headers)
+        logging.debug(f"Kimlik doğrulama yanıtı: {response.status_code} - {response.text}")
+        if response.status_code == 200:
+            logging.info(f"Kimlik doğrulama başarılı, kullanıcı: {response.json().get('data', {}).get('username')}")
         else:
-            logging.error(f"Tweet hatası: {e}, Detay: {error_details}")
+            logging.error(f"Kimlik doğrulama hatası: {response.status_code} - {response.text}")
+            return
+
+        # Tweet gönder
+        tweet_data = {"text": "Bu bir test mesajıdır"}
+        logging.info(f"Tweet gönderiliyor: {tweet_data['text']}")
+        response = requests.post(POST_TWEET_URL, headers=headers, json=tweet_data)
+        logging.debug(f"Tweet yanıtı: {response.status_code} - {response.text}")
+        if response.status_code == 201:
+            tweet_id = response.json().get('data', {}).get('id')
+            logging.info(f"Tweet gönderildi, ID: {tweet_id}, Tweet: {tweet_data['text']}")
+        else:
+            logging.error(f"Tweet hatası: {response.status_code} - {response.text}")
     except Exception as e:
         logging.error(f"Genel hata: {e}")
 
