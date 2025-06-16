@@ -128,7 +128,7 @@ class SoliumBot:
         
         try:
             response = self.grok_client.chat.completions.create(
-                model="grok-3",
+                model="grok-3-latest",  # Yeni model
                 messages=[{"role": "user", "content": prompts[account_name]}],
                 max_tokens=150,
                 temperature=0.7,
@@ -155,7 +155,7 @@ class SoliumBot:
             
         except Exception as e:
             if "rate limit" in str(e).lower():
-                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 891 saniye bekleniyor (12 dolarlık plan kotası doldu, kalan kredi: 12.33$)...")
+                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 891 saniye bekleniyor (yeni token kotası doldu)...")
                 time.sleep(891)
                 return self.generate_tweet_with_grok(account_name)  # Tekrar dene
             logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
