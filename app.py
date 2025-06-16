@@ -80,7 +80,7 @@ class SoliumBot:
                     consumer_secret=os.getenv(f"{account}_SECRET_KEY"),
                     access_token=os.getenv(f"{account}_ACCESS_TOKEN"),
                     access_token_secret=os.getenv(f"{account}_ACCESS_SECRET"),
-                    wait_on_rate_limit=True
+                    wait_on_rate_limit=False  # Tweepy'nin otomatik beklemesini kapat, biz yönetelim
                 )
                 logging.info(f"{account} Twitter istemcisi başarıyla başlatıldı")
             except Exception as e:
@@ -97,7 +97,7 @@ class SoliumBot:
                 http_client=httpx.Client(
                     proxies=None,
                     timeout=30.0,
-                    limits=httpx.Limits(max_connections=5, max_keepalive_connections=3)
+                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)  # Bağlantı limitini artır
                 )
             )
             logging.info("ChatGPT istemcisi başarıyla başlatıldı")
@@ -127,6 +127,7 @@ class SoliumBot:
         }
         
         try:
+            logging.info(f"{account_name} için ChatGPT ile tweet içeriği üretiliyor...")
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompts[account_name]}],
@@ -149,7 +150,7 @@ class SoliumBot:
             elif current_length > 240:
                 tweet = tweet[:237] + "..."
             
-            final_tweet = f"{tweet}{hashtag_str}"
+            final_tweet = f"{tweet} {hashtag_str}"
             logging.debug(f"{account_name} için oluşturulan tweet: {final_tweet}")
             return final_tweet
             
@@ -160,31 +161,32 @@ class SoliumBot:
                 return self.generate_tweet_with_openai(account_name)  # Tekrar dene
             logging.error(f"ChatGPT tweet üretimi hatası ({account_name}): {e}")
             return (
-                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin {random.sample(HASHTAGS, 3)}"
+                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
+                + " ".join(random.sample(HASHTAGS, 3))
             )
     
     def post_tweet(self, account_name):
         self.rate_limit_handler.check_rate_limit(account_name)
         
         try:
-            # Tweet içeriğini oluştur
+            logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
             tweet_text = self.generate_tweet_with_openai(account_name)
             
-            # Tweet’i gönder
+            logging.info(f"{account_name} için Twitter API çağrısı yapılıyor...")
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
             
-            # Başarılı ise logla
             tweet_id = response.data['id']
             logging.info(f"{account_name} tweet gönderildi (ID: {tweet_id}): {tweet_text[:50]}...")
-            
             return True
             
         except tweepy.errors.Forbidden as e:
             logging.error(f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}")
             return False
         except tweepy.TooManyRequests as e:
-            wait_time = 60 * 15  # 15 dakika bekle
-            logging.warning(f"{account_name} için Twitter API rate limit aşıldı. {wait_time/60} dakika bekleniyor: {e}")
+            headers = getattr(e, 'response', None).headers if hasattr(e, 'response') else {}
+            reset_time = int(headers.get('x-rate-limit-reset', time.time() + 900))
+            wait_time = max(reset_time - time.time(), 15)
+            logging.warning(f"{account_name} için Twitter API rate limit aşıldı, {wait_time:.1f} saniye bekleniyor: {e}, Headers: {headers}")
             time.sleep(wait_time)
             return False
         except Exception as e:
