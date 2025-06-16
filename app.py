@@ -14,12 +14,12 @@ logging.basicConfig(
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
 # Sabit anahtarlar (yeni Generate edilenler)
-CLIENT_ID = "dkdaZVhiVlYzd2EtcUFpMDZOS1A6MTpjaQ"
-CLIENT_SECRET = "CMmIPHRswpHNxXlr3VJpOoMbICrKuOGD1pYD0LJfEnHPp8gnp8"
-API_KEY = "TJE6mnAVYn2fSWzNisHP0oRbQ"
-API_SECRET = "1BfFOKXXJO7L0jEAw1wAQ2fFGJbJAgrGiRR2r8dn1l6Of2h6SR"
-ACCESS_TOKEN = "1934310422313947136-nz9YBN2Ibbj2Xqr9ILBBr49Hm9ndpR"
-ACCESS_TOKEN_SECRET = "KG3gpiuEPZE4uyjZubCWkuIUL1lmDH9WaNq0TL2B48IzR"
+CLIENT_ID = "OGhxeFZQQzJwSkFZdUw1M3FXQlU6MTpjaQ"
+CLIENT_SECRET = "GKULoRy2CCdO6R-My_8wf5etL46zDIoEVqotNakXrBRoJN5FE9"
+API_KEY = "nbht5XOoYZ7c7Xs1ApKv6qu3Y"
+API_SECRET = "QhlrVfp95GkD2ZvXBQJll2gD0hQybmWCTGUJhrOfsLH5CADJEB"
+ACCESS_TOKEN = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"
+ACCESS_TOKEN_SECRET = "7w9o3C35gVv1EMpdaczIJkRsqCFNRPeXmkPvSus6xXukC"
 
 # Twitter API v2 istemcisi (OAuth 2.0)
 try:
