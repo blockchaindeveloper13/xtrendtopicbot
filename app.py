@@ -174,7 +174,12 @@ def schedule_tweets():
 
 def main():
     logging.info("Solium Bot başlatılıyor...")
-    # İlk tweet çağrısını kaldırdım, sadece scheduler çalışacak
+    # İlk tweet’leri gönder
+    logging.info("İlk tweet’ler gönderiliyor...")
+    post_tweet("X", client_x)
+    post_tweet("X2", client_x2)
+    post_tweet("X3", client_x3)
+    # Scheduler’ı başlat
     schedule_tweets()
     try:
         while True:
