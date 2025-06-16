@@ -1,10 +1,8 @@
 import requests
-import oauthlib.oauth1
 import time
 import logging
 from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from urllib.parse import urlencode
 
 # Günlük kaydı (Türkiye saati, detaylı loglama)
 logging.basicConfig(
@@ -15,39 +13,25 @@ logging.basicConfig(
 )
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Sabit anahtarlar (yeni Generate edilenler)
+# Sabit anahtarlar (OAuth 2.0 için Access Token)
 CLIENT_ID = "OGhxeFZQQzJwSkFZdUw1M3FXQlU6MTpjaQ"
 CLIENT_SECRET = "GKULoRy2CCdO6R-My_8wf5etL46zDIoEVqotNakXrBRoJN5FE9"
-ACCESS_TOKEN = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"
-ACCESS_TOKEN_SECRET = "7w9o3C35gVv1EMpdaczIJkRsqCFNRPeXmkPvSus6xXukC"
+ACCESS_TOKEN = "1934310422313947136-5XtKb3i2TlbeiH7lR68C2DnePaeuAJ"  # Verdiğin token, OAuth 2.0 için test edilecek
 
 # Twitter API v2 endpoint'leri
 BASE_URL = "https://api.twitter.com/2"
 GET_ME_URL = f"{BASE_URL}/users/me"
 POST_TWEET_URL = f"{BASE_URL}/tweets"
 
-# OAuth 1.0a authentication (GET için body hariç, POST için form-urlencoded)
-def get_oauth1_headers(url, method="GET", body=None):
-    auth = oauthlib.oauth1.Client(
-        client_key=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
-        resource_owner_key=ACCESS_TOKEN,
-        resource_owner_secret=ACCESS_TOKEN_SECRET
-    )
-    if method in ["GET", "HEAD"] and body is not None:
-        body = None  # GET/HEAD için body kaldırılsın
-    elif body is None:
-        body = ""
-    elif isinstance(body, dict):
-        body = urlencode(body)
-    uri, headers, body = auth.sign(url, method, body=body, headers={"Content-Type": "application/x-www-form-urlencoded"})
-    return headers
+# Headers for OAuth 2.0
+def get_oauth2_headers():
+    return {"Authorization": f"Bearer {ACCESS_TOKEN}", "Content-Type": "application/json"}
 
 # Test tweet'i gönder
 def post_tweet():
     try:
         # Kimlik doğrulama testi (get_me)
-        headers = get_oauth1_headers(GET_ME_URL)
+        headers = get_oauth2_headers()
         logging.info(f"Kimlik doğrulama isteği yapılıyor: {GET_ME_URL}")
         response = requests.get(GET_ME_URL, headers=headers)
         logging.debug(f"Kimlik doğrulama yanıtı: {response.status_code} - {response.text}")
@@ -59,10 +43,9 @@ def post_tweet():
 
         # Tweet gönder
         tweet_data = {"text": "Bu bir test mesajıdır"}
-        headers = get_oauth1_headers(POST_TWEET_URL, method="POST", body=tweet_data)
-        headers["Content-Type"] = "application/x-www-form-urlencoded"
+        headers = get_oauth2_headers()
         logging.info(f"Tweet gönderiliyor: {tweet_data['text']}")
-        response = requests.post(POST_TWEET_URL, headers=headers, data=urlencode(tweet_data))
+        response = requests.post(POST_TWEET_URL, headers=headers, json=tweet_data)
         logging.debug(f"Tweet yanıtı: {response.status_code} - {response.text}")
         if response.status_code == 201:
             tweet_id = response.json().get('data', {}).get('id')
