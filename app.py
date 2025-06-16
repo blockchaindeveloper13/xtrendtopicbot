@@ -66,7 +66,7 @@ class SoliumBot:
     def __init__(self):
         self.rate_limit_handler = TwitterRateLimitHandler()
         self.twitter_clients = self.initialize_twitter_clients()
-        self.grok_client = self.initialize_grok_client()
+        self.openai_client = self.initialize_openai_client()
         self.scheduler = BackgroundScheduler(timezone="UTC")
         
     def initialize_twitter_clients(self):
@@ -89,24 +89,24 @@ class SoliumBot:
         
         return clients
     
-    def initialize_grok_client(self):
+    def initialize_openai_client(self):
         try:
             client = OpenAI(
-                api_key=os.getenv("GROK_API_KEY"),
-                base_url="https://api.x.ai/v1",
+                api_key=os.getenv("OPENAI_API_KEY"),
+                base_url="https://api.openai.com/v1",
                 http_client=httpx.Client(
                     proxies=None,
                     timeout=30.0,
                     limits=httpx.Limits(max_connections=5, max_keepalive_connections=3)
                 )
             )
-            logging.info("Grok-3 istemcisi başarıyla başlatıldı")
+            logging.info("ChatGPT istemcisi başarıyla başlatıldı")
             return client
         except Exception as e:
-            logging.error(f"Grok istemcisi başlatılamadı: {e}")
+            logging.error(f"ChatGPT istemcisi başlatılamadı: {e}")
             raise
     
-    def generate_tweet_with_grok(self, account_name):
+    def generate_tweet_with_openai(self, account_name):
         prompts = {
             "X": (
                 "Create a professional English tweet (220-240 chars) for SoliumCoin starting with 'soliumcoin.com'. "
@@ -127,8 +127,8 @@ class SoliumBot:
         }
         
         try:
-            response = self.grok_client.chat.completions.create(
-                model="grok-3-latest",  # Yeni model
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompts[account_name]}],
                 max_tokens=150,
                 temperature=0.7,
@@ -140,27 +140,27 @@ class SoliumBot:
             tweet = response.choices[0].message.content.strip()
             selected_hashtags = random.sample(HASHTAGS, 3)
             hashtag_str = " ".join(selected_hashtags)
+            
+            # 280 karaktere doldur, hashtag'ler sonda
+            current_length = len(tweet)
+            if current_length < 240:
+                padding = " " * (240 - current_length)
+                tweet = f"{tweet}{padding}"
+            elif current_length > 240:
+                tweet = tweet[:237] + "..."
+            
             final_tweet = f"{tweet} {hashtag_str}"
-            
-            # 280 karaktere doldur
-            current_length = len(final_tweet)
-            if current_length < 280:
-                padding = " " * (280 - current_length - 3) + "..."
-                final_tweet = f"{final_tweet}{padding}"
-            elif current_length > 280:
-                final_tweet = final_tweet[:277] + "..."
-            
             logging.debug(f"{account_name} için oluşturulan tweet: {final_tweet}")
             return final_tweet
             
         except Exception as e:
             if "rate limit" in str(e).lower():
-                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 891 saniye bekleniyor (yeni token kotası doldu)...")
-                time.sleep(891)
-                return self.generate_tweet_with_grok(account_name)  # Tekrar dene
-            logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
+                logging.warning(f"ChatGPT API rate limit aşıldı (Hesap: {account_name}), 60 saniye bekleniyor...")
+                time.sleep(60)
+                return self.generate_tweet_with_openai(account_name)  # Tekrar dene
+            logging.error(f"ChatGPT tweet üretimi hatası ({account_name}): {e}")
             return (
-                "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
+                f"soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
                 + " ".join(random.sample(HASHTAGS, 3))
             )
     
@@ -169,7 +169,7 @@ class SoliumBot:
         
         try:
             # Tweet içeriğini oluştur
-            tweet_text = self.generate_tweet_with_grok(account_name)
+            tweet_text = self.generate_tweet_with_openai(account_name)
             
             # Tweet’i gönder
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
@@ -207,10 +207,10 @@ class SoliumBot:
             )
         
         self.scheduler.start()
-        logging.info("Zamanlayıcı başlatıldı (Grok-3 aktif)")
+        logging.info("Zamanlayıcı başlatıldı (ChatGPT aktif)")
     
     def run_initial_tweets(self):
-        logging.info("Başlangıç tweetleri gönderiliyor (Grok-3 ile)...")
+        logging.info("Başlangıç tweetleri gönderiliyor (ChatGPT ile)...")
         for account_name in self.twitter_clients:
             try:
                 if self.post_tweet(account_name):
@@ -220,7 +220,7 @@ class SoliumBot:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
     
     def start(self):
-        logging.info("Solium Bot başlatılıyor (Grok-3 aktif)...")
+        logging.info("Solium Bot başlatılıyor (ChatGPT aktif)...")
         self.run_initial_tweets()
         self.schedule_tweets()
         
