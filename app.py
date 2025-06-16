@@ -26,7 +26,7 @@ BASE_URL = "https://api.twitter.com/2"
 GET_ME_URL = f"{BASE_URL}/users/me"
 POST_TWEET_URL = f"{BASE_URL}/tweets"
 
-# OAuth 1.0a authentication (form-urlencoded body ile doğru imza)
+# OAuth 1.0a authentication (GET için body hariç, POST için form-urlencoded)
 def get_oauth1_headers(url, method="GET", body=None):
     auth = oauthlib.oauth1.Client(
         client_key=CLIENT_ID,
@@ -34,7 +34,9 @@ def get_oauth1_headers(url, method="GET", body=None):
         resource_owner_key=ACCESS_TOKEN,
         resource_owner_secret=ACCESS_TOKEN_SECRET
     )
-    if body is None:
+    if method in ["GET", "HEAD"] and body is not None:
+        body = None  # GET/HEAD için body kaldırılsın
+    elif body is None:
         body = ""
     elif isinstance(body, dict):
         body = urlencode(body)
