@@ -15,10 +15,10 @@ logging.basicConfig(
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
 # Ortam değişkenlerini ayarla (production'da Heroku config'den alınmalı)
-os.environ["X_API_KEY"] = "Jo7aqAeQ0nrN16b2d9Gx46UJL"
-os.environ["X_SECRET_KEY"] = "fXrD9TVE31cHdUM16gKWVKCnS45BymBlYSiiKGOf7053V1iwYZ"
-os.environ["X_ACCESS_TOKEN"] = "1933936583314423808-4Bo67sM6vw1U6Jf87gpoFqViDzIfhW"
-os.environ["X_ACCESS_SECRET"] = "1ACE9sjJOYHtOFbiJmSOsYlahTwNZ1UjajQ8D5t2xTvKz"
+os.environ["X_API_KEY"] = 
+os.environ["X_SECRET_KEY"] = 
+os.environ["X_ACCESS_TOKEN"] =
+os.environ["X_ACCESS_SECRET"] = 
 
 # Twitter API v2 istemcisi
 try:
