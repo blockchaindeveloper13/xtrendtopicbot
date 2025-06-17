@@ -1,11 +1,9 @@
 import os
-import tweepy
 import time
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
-import httpx
-from openai import OpenAI
+import tweepy
 
 # Günlük kaydı (Türkiye saati)
 logging.basicConfig(
@@ -32,7 +30,7 @@ class TwitterRateLimitHandler:
         account = self.account_limits[account_name]
         if now < account["last_call"] + account["retry_after"]:
             wait_time = (account["last_call"] + account["retry_after"]) - now
-            logging.warning(f"{account_name} için Twitter rate limit bekleme: {wait_time:.1f} saniye")
+            logging.warning(f"{account_name} için Twitter rate limit bekleniyor: {wait_time:.1f} saniye")
             time.sleep(wait_time)
         return True
     
@@ -49,7 +47,6 @@ class SoliumBot:
     def __init__(self):
         self.rate_limit_handler = TwitterRateLimitHandler()
         self.twitter_clients = self.initialize_twitter_clients()
-        self.grok_client = self.initialize_grok_client()
         self.scheduler = BackgroundScheduler(timezone="UTC")
         
     def initialize_twitter_clients(self):
@@ -72,114 +69,18 @@ class SoliumBot:
         
         return clients
     
-    def initialize_grok_client(self):
-        try:
-            client = OpenAI(
-                api_key=os.getenv("GROK_API_KEY"),
-                base_url="https://api.x.ai/v1",
-                http_client=httpx.Client(
-                    proxies=None,
-                    timeout=30.0,
-                    limits=httpx.Limits(max_connections=10, max_keepalive_connections=5)
-                )
-            )
-            logging.info("Grok-3 istemcisi başarıyla başlatıldı")
-            return client
-        except Exception as e:
-            logging.error(f"Grok istemcisi başlatılamadı: {e}")
-            raise
-    
-    def generate_tweet_with_grok(self, account_name):
-        prompts = {
-            "X": (
-                "Write a professional English tweet for SoliumCoin, 160-180 characters. "
-                "Start with 'soliumcoin.com'. Focus on blockchain innovation and real-world use cases. "
-                "Include 'Don’t miss our presale!' to emphasize the ongoing presale. "
-                "End with 'Follow @soliumcoin'. No hashtags, keep it factual."
-            ),
-            "X2": (
-                "Write a community-focused English tweet for SoliumCoin, 160-180 characters. "
-                "Start with 'soliumcoin.com'. Highlight the SoliumArmy community and presale benefits. "
-                "Include 'Don’t miss our presale!'. Use friendly tone. End with 'Follow @soliumcoin'. "
-                "No hashtags, keep it inclusive."
-            ),
-            "X3": (
-                "Write an energetic English tweet for SoliumCoin, 160-180 characters. "
-                "Start with 'soliumcoin.com'. Emphasize presale opportunity and growth potential. "
-                "Include 'Don’t miss our presale!'. Use exciting but professional tone. "
-                "End with 'Follow @soliumcoin'. No hashtags, avoid exaggeration."
-            )
-        }
-        
-        try:
-            logging.info(f"{account_name} için Grok-3 ile tweet içeriği üretiliyor...")
-            response = self.grok_client.chat.completions.create(
-                model="grok-3-latest",
-                messages=[{"role": "user", "content": prompts[account_name]}],
-                max_tokens=90,
-                temperature=0.7,
-                top_p=0.9,
-                frequency_penalty=0.2,
-                presence_penalty=0.2
-            )
-            
-            tweet = response.choices[0].message.content.strip()
-            
-            # Tweet formatını zorla
-            base_components = {
-                "start": "soliumcoin.com",
-                "presale": "Don’t miss our presale!",
-                "end": "Follow @soliumcoin",
-                "hashtags": " #bitcoin #binance #mexc"
-            }
-            base_length = sum(len(c) for c in base_components.values())  # 76 karakter
-            
-            # İçeriği kırp
-            content_max_length = 280 - base_length  # ~204 karakter
-            if len(tweet) > content_max_length:
-                tweet = tweet[:content_max_length - 3] + "..."
-            
-            # Formatı oluştur
-            if not tweet.startswith(base_components["start"]):
-                tweet = f"{base_components['start']} {tweet[:content_max_length - len(base_components['start']) - 1]}"
-            if base_components["presale"] not in tweet:
-                tweet = tweet[:content_max_length - len(base_components["presale"]) - 1] + f" {base_components['presale']}"
-            if not tweet.endswith(base_components["end"]):
-                tweet = tweet[:content_max_length - len(base_components["end"]) - 1] + f" {base_components['end']}"
-            
-            # 160-180 karaktere ayarla (içerik kısmı)
-            current_length = len(tweet)
-            if current_length < 160:
-                padding = " " * (160 - current_length)
-                tweet = f"{tweet}{padding}"
-            elif current_length > 180:
-                tweet = tweet[:177] + "..."
-            
-            final_tweet = f"{tweet}{base_components['hashtags']}"
-            
-            # Son kontrol: 280 karakter
-            if len(final_tweet) > 280:
-                final_tweet = final_tweet[:277] + "..."
-            
-            logging.info(f"{account_name} için üretilen tweet içeriği ({len(final_tweet)} karakter): {final_tweet}")
-            return final_tweet
-            
-        except Exception as e:
-            if "rate limit" in str(e).lower():
-                logging.warning(f"Grok API rate limit aşıldı (Hesap: {account_name}), 891 saniye bekleniyor: {e}")
-                time.sleep(891)
-                return self.generate_tweet_with_grok(account_name)
-            logging.error(f"Grok-3 tweet üretimi hatası ({account_name}): {e}")
-            return (
-                f"soliumcoin.com Join Web3! Don’t miss our presale! Follow @soliumcoin #bitcoin #binance #mexc"
-            )
+    def get_fallback_tweet(self, account_name):
+        # Fallback tweet içeriği
+        tweet = f"soliumcoin.com Join Web3! Don’t miss our presale! Follow @soliumcoin {' '.join(HASHTAGS)}"
+        logging.info(f"{account_name} için fallback tweet içeriği ({len(tweet)} karakter): {tweet}")
+        return tweet
     
     def post_tweet(self, account_name):
         self.rate_limit_handler.check_rate_limit(account_name)
         
         try:
             logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
-            tweet_text = self.generate_tweet_with_grok(account_name)
+            tweet_text = self.get_fallback_tweet(account_name)
             
             logging.info(f"{account_name} için Twitter API çağrısı yapılıyor...")
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
@@ -237,10 +138,10 @@ class SoliumBot:
             )
         
         self.scheduler.start()
-        logging.info("Zamanlayıcı başlatıldı (Grok-3 aktif)")
+        logging.info("Zamanlayıcı başlatıldı")
     
     def run_initial_tweets(self):
-        logging.info("Başlangıç tweetleri gönderiliyor (Grok-3 ile)...")
+        logging.info("Başlangıç tweetleri gönderiliyor...")
         for account_name in self.twitter_clients.keys():
             try:
                 if self.post_tweet(account_name):
@@ -250,7 +151,7 @@ class SoliumBot:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
     
     def start(self):
-        logging.info("Solium Bot başlatılıyor (Grok-3 aktif)...")
+        logging.info("Solium Bot başlatılıyor...")
         self.run_initial_tweets()
         self.schedule_tweets()
         
