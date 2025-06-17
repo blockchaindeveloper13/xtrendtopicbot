@@ -173,7 +173,7 @@ class SoliumBot:
     def start(self):
         logging.info("Solium Bot başlatılıyor...")
         self.run_initial_tweets()
-        self.schedule Legumes():
+        self.schedule_tweets()
         
         try:
             while True:
