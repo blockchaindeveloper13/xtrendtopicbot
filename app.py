@@ -54,7 +54,7 @@ class TwitterRateLimitHandler:
         if headers and 'x-rate-limit-reset' in headers:
             reset_time = int(headers['x-rate-limit-reset'])
             now = time.time()
-            self.account_limits[account_name] = {
+            self.query_limits[account_name] = {
                 "last_call": now,
                 "retry_after": max(reset_time - now, 15)
             }
@@ -124,7 +124,7 @@ class SoliumBot:
                     f"Headers: {headers}"
                 )
             time.sleep(wait_time)
-            return False  # Hata sonrası False döndür, diğer hesaplar devam etsin
+            return False
         except tweepy.errors.Forbidden as e:
             logging.error(
                 f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. "
@@ -152,21 +152,24 @@ class SoliumBot:
                 misfire_grace_time=300,
                 coalesce=True
             )
+            logging.info(f"{account_name} için 96 dakikalık tweet zamanlayıcısı ayarlandı")
+        
         self.scheduler.start()
-        logging.info("Zamanlayıcı başlatıldı")
+        logging.info("Tüm zamanlayıcılar başlatıldı")
     
     def run_initial_tweets(self):
         logging.info("Başlangıç tweetleri gönderiliyor...")
         for account_name in self.twitter_clients.keys():
+            logging.info(f"{account_name} için başlangıç tweet işlemi başlatılıyor...")
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
                 else:
                     logging.warning(f"{account_name} başlangıç tweeti gönderilemedi, 96 dakika sonra tekrar denenecek")
-                time.sleep(300)  # Hesaplar arasında 5 dakika bekle
             except Exception as e:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
-                time.sleep(300)  # Hata olsa bile diğer hesaplara geçmek için 5 dakika bekle
+            logging.info(f"{account_name} işlemi tamamlandı, bir sonraki hesaba geçiliyor")
+            time.sleep(5)  # Hesaplar arasında 5 saniye bekle (hızlı geçiş için)
     
     def start(self):
         logging.info("Solium Bot başlatılıyor...")
