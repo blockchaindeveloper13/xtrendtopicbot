@@ -54,7 +54,7 @@ class TwitterRateLimitHandler:
         if headers and 'x-rate-limit-reset' in headers:
             reset_time = int(headers['x-rate-limit-reset'])
             now = time.time()
-            self.query_limits[account_name] = {
+            self.account_limits[account_name] = {
                 "last_call": now,
                 "retry_after": max(reset_time - now, 15)
             }
@@ -70,6 +70,9 @@ class SoliumBot:
         accounts = ["X", "X2", "X3"]
         
         for account in accounts:
+            if not os.getenv(f"{account}_API_KEY"):
+                logging.error(f"{account} için API anahtarı eksik")
+                continue
             try:
                 clients[account] = tweepy.Client(
                     consumer_key=os.getenv(f"{account}_API_KEY"),
@@ -81,31 +84,33 @@ class SoliumBot:
                 logging.info(f"{account} Twitter istemcisi başarıyla başlatıldı")
             except Exception as e:
                 logging.error(f"{account} Twitter istemcisi başlatılamadı: {e}")
-                raise
         
+        if not clients:
+            raise Exception("Hiçbir Twitter istemcisi başlatılamadı")
         return clients
     
     def get_fallback_tweet(self, account_name):
-        # Rastgele 3 hashtag seç
         selected_hashtags = random.sample(HASHTAGS, 3)
         tweet = f"visit soliumcoin.com Presale started 🚀 Join Web3! Hurry up! 💸 Don’t miss our presale! 🎉 Follow @soliumcoin 📌 {' '.join(selected_hashtags)}"
         logging.info(f"{account_name} için tweet içeriği ({len(tweet)} karakter): {tweet}")
         return tweet
     
     def post_tweet(self, account_name):
+        if account_name not in self.twitter_clients:
+            logging.error(f"{account_name} için Twitter istemcisi bulunamadı")
+            return False
+        
         self.rate_limit_handler.check_rate_limit(account_name)
+        logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
+        tweet_text = self.get_fallback_tweet(account_name)
         
         try:
-            logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
-            tweet_text = self.get_fallback_tweet(account_name)
-            
             logging.info(f"{account_name} için Twitter API çağrısı yapılıyor...")
             response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
-            
             tweet_id = response.data['id']
             logging.info(f"{account_name} tweet gönderildi (ID: {tweet_id}): {tweet_text[:50]}...")
             return True
-            
+        
         except tweepy.TooManyRequests as e:
             headers = getattr(e, 'response', None).headers if hasattr(e, 'response') else {}
             app_limit_remaining = headers.get('x-app-limit-24hour-remaining', 'N/A')
@@ -127,21 +132,20 @@ class SoliumBot:
             return False
         except tweepy.errors.Forbidden as e:
             logging.error(
-                f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. "
-                f"Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}"
+                f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini kontrol et. "
+                f"Tweet içeriği: {tweet_text}, Hata: {e}"
             )
-            time.sleep(5760)  # 96 dakika bekle
+            time.sleep(5760)
             return False
         except Exception as e:
             logging.error(
-                f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}"
+                f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text}, Hata: {e}"
             )
-            time.sleep(5760)  # 96 dakika bekle
+            time.sleep(5760)
             return False
     
     def schedule_tweets(self):
         interval = 5760  # 96 dakika
-        
         for account_name in self.twitter_clients.keys():
             self.scheduler.add_job(
                 self.post_tweet,
@@ -153,7 +157,6 @@ class SoliumBot:
                 coalesce=True
             )
             logging.info(f"{account_name} için 96 dakikalık tweet zamanlayıcısı ayarlandı")
-        
         self.scheduler.start()
         logging.info("Tüm zamanlayıcılar başlatıldı")
     
@@ -161,21 +164,17 @@ class SoliumBot:
         logging.info("Başlangıç tweetleri gönderiliyor...")
         for account_name in self.twitter_clients.keys():
             logging.info(f"{account_name} için başlangıç tweet işlemi başlatılıyor...")
-            try:
-                if self.post_tweet(account_name):
-                    logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
-                else:
-                    logging.warning(f"{account_name} başlangıç tweeti gönderilemedi, 96 dakika sonra tekrar denenecek")
-            except Exception as e:
-                logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
+            if self.post_tweet(account_name):
+                logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
+            else:
+                logging.warning(f"{account_name} başlangıç tweeti gönderilemedi, 96 dakika sonra tekrar denenecek")
             logging.info(f"{account_name} işlemi tamamlandı, bir sonraki hesaba geçiliyor")
-            time.sleep(5)  # Hesaplar arasında 5 saniye bekle (hızlı geçiş için)
+            time.sleep(5)  # Hesaplar arasında 5 saniye bekle
     
     def start(self):
         logging.info("Solium Bot başlatılıyor...")
         self.run_initial_tweets()
         self.schedule_tweets()
-        
         try:
             while True:
                 time.sleep(60)
