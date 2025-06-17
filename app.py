@@ -110,40 +110,37 @@ class SoliumBot:
             headers = getattr(e, 'response', None).headers if hasattr(e, 'response') else {}
             app_limit_remaining = headers.get('x-app-limit-24hour-remaining', 'N/A')
             user_limit_remaining = headers.get('x-user-limit-24hour-remaining', 'N/A')
+            wait_time = 5760  # 96 dakika
             if app_limit_remaining == '0' or user_limit_remaining == '0':
                 reset_time = int(headers.get('x-app-limit-24hour-reset', time.time() + 7200))
-                wait_time = 5400  # 90 dakika (hata sonrası tekrar deneme süresi)
                 logging.warning(
                     f"{account_name} için Twitter 24 saatlik kota doldu (App: {app_limit_remaining}, User: {user_limit_remaining}), "
                     f"{wait_time:.1f} saniye bekleniyor (sıfırlama: {datetime.fromtimestamp(reset_time, tz=ZoneInfo('Europe/Istanbul'))}): {e}"
                 )
-                time.sleep(wait_time)
-                return self.post_tweet(account_name)
             else:
-                reset_time = int(headers.get('x-rate-limit-reset', time.time() + 5400))
-                wait_time = 5400  # 90 dakika (hata sonrası tekrar deneme süresi)
+                reset_time = int(headers.get('x-rate-limit-reset', time.time() + 5760))
                 logging.warning(
                     f"{account_name} için Twitter API rate limit aşıldı, {wait_time:.1f} saniye bekleniyor: {e}, "
                     f"Headers: {headers}"
                 )
-                time.sleep(wait_time)
-                return self.post_tweet(account_name)
+            time.sleep(wait_time)
+            return False  # Hata sonrası False döndür, diğer hesaplar devam etsin
         except tweepy.errors.Forbidden as e:
             logging.error(
                 f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini ve hesap kısıtlamalarını kontrol et. "
                 f"Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}"
             )
-            time.sleep(5400)  # 90 dakika bekle
-            return self.post_tweet(account_name)
+            time.sleep(5760)  # 96 dakika bekle
+            return False
         except Exception as e:
             logging.error(
                 f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text if 'tweet_text' in locals() else 'N/A'}, Hata: {e}"
             )
-            time.sleep(5400)  # 90 dakika bekle
-            return self.post_tweet(account_name)
+            time.sleep(5760)  # 96 dakika bekle
+            return False
     
     def schedule_tweets(self):
-        interval = 5400  # 90 dakika
+        interval = 5760  # 96 dakika
         
         for account_name in self.twitter_clients.keys():
             self.scheduler.add_job(
@@ -155,7 +152,6 @@ class SoliumBot:
                 misfire_grace_time=300,
                 coalesce=True
             )
-        
         self.scheduler.start()
         logging.info("Zamanlayıcı başlatıldı")
     
@@ -165,10 +161,12 @@ class SoliumBot:
             try:
                 if self.post_tweet(account_name):
                     logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
+                else:
+                    logging.warning(f"{account_name} başlangıç tweeti gönderilemedi, 96 dakika sonra tekrar denenecek")
                 time.sleep(300)  # Hesaplar arasında 5 dakika bekle
             except Exception as e:
                 logging.error(f"{account_name} başlangıç tweeti gönderilemedi: {e}")
-                time.sleep(5400)  # 90 dakika bekle
+                time.sleep(300)  # Hata olsa bile diğer hesaplara geçmek için 5 dakika bekle
     
     def start(self):
         logging.info("Solium Bot başlatılıyor...")
