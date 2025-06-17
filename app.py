@@ -22,24 +22,24 @@ HASHTAGS = [
     "#Presale", "#DeFi", "#CryptoFuture", "#JoinTheFuture"
 ]
 
-# Ortam değişkenleri (sadece X hesabı için)
-required_env_vars = ["X_API_KEY", "X_SECRET_KEY", "X_ACCESS_TOKEN", "X_ACCESS_SECRET", "GROK_API_KEY"]
+# Ortam değişkenleri (sadece X2 hesabı için)
+required_env_vars = ["X2_API_KEY", "X2_SECRET_KEY", "X2_ACCESS_TOKEN", "X2_ACCESS_SECRET", "GROK_API_KEY"]
 for var in required_env_vars:
     if not os.getenv(var):
         logging.error(f"Ortam değişkeni eksik: {var}")
         exit(1)
 
-# Twitter API v2 istemcisi (sadece X)
+# Twitter API v2 istemcisi (sadece X2)
 try:
     client = tweepy.Client(
-        consumer_key=os.getenv("X_API_KEY"),
-        consumer_secret=os.getenv("X_SECRET_KEY"),
-        access_token=os.getenv("X_ACCESS_TOKEN"),
-        access_token_secret=os.getenv("X_ACCESS_SECRET")
+        consumer_key=os.getenv("X2_API_KEY"),
+        consumer_secret=os.getenv("X2_SECRET_KEY"),
+        access_token=os.getenv("X2_ACCESS_TOKEN"),
+        access_token_secret=os.getenv("X2_ACCESS_SECRET")
     )
-    logging.info("Twitter/X API istemcisi başarıyla başlatıldı")
+    logging.info("X2 Twitter API istemcisi başarıyla başlatıldı")
 except Exception as e:
-    logging.error(f"Twitter/X API istemcisi başlatılamadı: {e}")
+    logging.error(f"X2 Twitter API istemcisi başlatılamadı: {e}")
     raise
 
 # Grok API ile tweet içeriği üret
@@ -75,7 +75,7 @@ def generate_tweet_content():
             wait_time = max(0, reset_time - time.time()) + 10
             logging.warning(f"Grok API oran sınırı aşıldı, {wait_time} saniye bekleniyor")
             time.sleep(wait_time)
-            return generate_tweet_content()  # Tekrar dene
+            return generate_tweet_content()
         logging.error(f"Grok API hatası: {e}")
         return (
             "soliumcoin.com Join the Web3 future with our presale! Be part of something big. Follow @soliumcoin "
@@ -93,15 +93,15 @@ def post_tweet():
     try:
         tweet_text = generate_tweet_content()
         response = client.create_tweet(text=tweet_text)
-        logging.info(f"X tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
+        logging.info(f"X2 tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
     except tweepy.errors.TooManyRequests as e:
         reset_time = int(e.response.headers.get('x-rate-limit-reset', 0))
         wait_time = max(0, reset_time - time.time()) + 10
-        logging.warning(f"Twitter API oran sınırı aşıldı, {wait_time} saniye bekleniyor")
+        logging.warning(f"Twitter API oran sınırı aşıldı, X2 için {wait_time} saniye bekleniyor")
         time.sleep(wait_time)
         post_tweet()  # Tekrar dene
     except Exception as e:
-        logging.error(f"X tweet gönderim hatası: {e}")
+        logging.error(f"X2 tweet gönderim hatası: {e}")
 
 # Tweet zamanlama
 def schedule_tweets():
@@ -110,14 +110,14 @@ def schedule_tweets():
         post_tweet,
         'interval',
         seconds=5760,  # 96 dk, ~15 tweet/gün
-        id="tweet_job_X",
+        id="tweet_job_X2",
         jitter=300  # 5 dk rastgele gecikme
     )
     scheduler.start()
-    logging.info("Tweet zamanlayıcı başlatıldı")
+    logging.info("X2 için tweet zamanlayıcı başlatıldı")
 
 def main():
-    logging.info("Solium Bot başlatılıyor (tek hesap: X)...")
+    logging.info("Solium Bot başlatılıyor (tek hesap: X2)...")
     post_tweet()  # İlk tweet'i hemen gönder
     schedule_tweets()
     try:
