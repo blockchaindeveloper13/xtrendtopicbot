@@ -15,7 +15,7 @@ logging.basicConfig(
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
 # Sabit hashtag’ler
-HASHTAGS = ["#bitcoin", "#binance", "#mexc"]
+HASHTAGS = ["#bitcoin", "#binance", "#mexc", "#kucoin"]
 
 class TwitterRateLimitHandler:
     def __init__(self):
