@@ -85,7 +85,7 @@ class SoliumBot:
     
     def get_fallback_tweet(self, account_name):
         # Fallback tweet içeriği
-        tweet = f"soliumcoin.com Join Web3! Don’t miss our presale! Follow @soliumcoin {' '.join(HASHTAGS)}"
+        tweet = f"visit soliumcoin.com Presale started 🚀 Join Web3! Hurry up! 💸 Don’t miss our presale! 🎉 Follow @soliumcoin 📌 {' '.join(HASHTAGS)}"
         logging.info(f"{account_name} için fallback tweet içeriği ({len(tweet)} karakter): {tweet}")
         return tweet
     
