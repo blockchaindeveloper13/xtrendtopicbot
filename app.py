@@ -15,7 +15,21 @@ logging.basicConfig(
 logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
 # Sabit hashtag’ler
-HASHTAGS = ["#bitcoin", "#binance", "#mexc", "#kucoin"]
+HASHTAGS = ["#Solium", "#SoliumArmy", "#Web3", "#DeFi", "#Crypto", "#Cryptocurrency",
+    "#Cryptocurrencies", "#Blockchain", "#BlockchainTechnology", "#CryptoNews",
+    "#CryptocurrencyNews", "#CryptoMarket", "#Cryptotrading", "#CryptoInvestor",
+    "#Cryptoworld", "#Cryptolife", "#CryptoCommunity", "#Cryptomemes", "#Bitcoin",
+    "#BTC", "#Ethereum", "#ETH", "#Binance", "#BNB", "#Solana", "#SOL", "#Ripple",
+    "#XRP", "#Litecoin", "#LTC", "#Dogecoin", "#DOGE", "#Cardano", "#ADA",
+    "#Polkadot", "#DOT", "#Chainlink", "#LINK", "#DAO", "#Decentralized",
+    "#DecentralizedFinance", "#YieldFarming", "#Staking", "#NFT", "#NFTs",
+    "#NFTArt", "#Metaverse", "#CryptoArt", "#NFTCommunity", "#Trading",
+    "#CryptocurrencyTrading", "#Altcoin", "#Altcoins", "#HODL", "#CryptoExchange",
+    "#BinanceFutures", "#Coinbase", "#KuCoin", "#Kraken", "#CryptoTwitter",
+    "#BitcoinCommunity", "#EthereumCommunity", "#SolanaCommunity", "#BSC",
+    "#MemeCoin", "#CryptoEvents", "#Invest", "#Investing", "#Investment",
+    "#FinancialFreedom", "#PassiveIncome", "#CryptoInvesting", "#BullRun",
+    "#BearMarket", "#Dubai", "#Innovation"]
 
 class TwitterRateLimitHandler:
     def __init__(self):
