@@ -1,193 +1,136 @@
 import os
+import tweepy
 import time
 import logging
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
-import random
-import tweepy
+from datetime import datetime, timezone, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+import random
+import requests
 
-# Günlük kaydı (Türkiye saati: UTC+3)
+# Günlük kaydı (Türkiye saati)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[logging.FileHandler('solium_bot.log'), logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S %Z'
 )
-logging.Formatter.converter = lambda *args: datetime.now(ZoneInfo("Europe/Istanbul")).timetuple()
+logging.Formatter.converter = lambda *args: datetime.now(timezone(timedelta(hours=3))).timetuple()
 
-# Sabit hashtag’ler
-HASHTAGS = ["#Solium", "#SoliumArmy", "#Web3", "#DeFi", "#Crypto", "#Cryptocurrency",
-    "#Cryptocurrencies", "#Blockchain", "#BlockchainTechnology", "#CryptoNews",
-    "#CryptocurrencyNews", "#CryptoMarket", "#Cryptotrading", "#CryptoInvestor",
-    "#Cryptoworld", "#Cryptolife", "#CryptoCommunity", "#Cryptomemes", "#Bitcoin",
-    "#BTC", "#Ethereum", "#ETH", "#Binance", "#BNB", "#Solana", "#SOL", "#Ripple",
-    "#XRP", "#Litecoin", "#LTC", "#Dogecoin", "#DOGE", "#Cardano", "#ADA",
-    "#Polkadot", "#DOT", "#Chainlink", "#LINK", "#DAO", "#Decentralized",
-    "#DecentralizedFinance", "#YieldFarming", "#Staking", "#NFT", "#NFTs",
-    "#NFTArt", "#Metaverse", "#CryptoArt", "#NFTCommunity", "#Trading",
-    "#CryptocurrencyTrading", "#Altcoin", "#Altcoins", "#HODL", "#CryptoExchange",
-    "#BinanceFutures", "#Coinbase", "#KuCoin", "#Kraken", "#CryptoTwitter",
-    "#BitcoinCommunity", "#EthereumCommunity", "#SolanaCommunity", "#BSC",
-    "#MemeCoin", "#CryptoEvents", "#Invest", "#Investing", "#Investment",
-    "#FinancialFreedom", "#PassiveIncome", "#CryptoInvesting", "#BullRun",
-    "#BearMarket", "#Dubai", "#Innovation"]
+# Hashtag havuzu
+HASHTAGS = [
+    "#SoliumCoin", "#Web3", "#Crypto", "#Blockchain",
+    "#Presale", "#DeFi", "#CryptoFuture", "#JoinTheFuture"
+]
 
-class TwitterRateLimitHandler:
-    def __init__(self):
-        self.account_limits = {
-            "X": {"last_call": 0, "retry_after": 0},
-            "X2": {"last_call": 0, "retry_after": 0},
-            "X3": {"last_call": 0, "retry_after": 0}
+# Ortam değişkenlerini set et (test için, production’da Heroku Config Vars’tan çek)
+os.environ["X_API_KEY"] 
+os.environ["X_SECRET_KEY"] 
+os.environ["X_ACCESS_TOKEN"] 
+os.environ["X_ACCESS_SECRET"] 
+os.environ["X2_API_KEY"] 
+os.environ["X2_SECRET_KEY"] 
+os.environ["X2_ACCESS_TOKEN"] 
+os.environ["X2_ACCESS_SECRET"] 
+os.environ["X3_API_KEY"] 
+os.environ["X3_SECRET_KEY"] 
+os.environ["X3_ACCESS_TOKEN"] 
+os.environ["X3_ACCESS_SECRET"] 
+os.environ["GROK_API_KEY"] 
+
+# Twitter API v2 istemcilerini başlat
+clients = {
+    "X": None,
+    "X2": None,
+    "X3": None
+}
+for account_name in clients.keys():
+    try:
+        clients[account_name] = tweepy.Client(
+            consumer_key=os.getenv(f"{account_name}_API_KEY"),
+            consumer_secret=os.getenv(f"{account_name}_SECRET_KEY"),
+            access_token=os.getenv(f"{account_name}_ACCESS_TOKEN"),
+            access_token_secret=os.getenv(f"{account_name}_ACCESS_SECRET")
+        )
+        logging.info(f"{account_name} API istemcisi başarıyla başlatıldı")
+    except Exception as e:
+        logging.error(f"{account_name} API istemcisi başlatılamadı: {e}")
+        raise
+
+# Grok API ile tweet içeriği üret
+def generate_tweet_content():
+    try:
+        headers = {
+            "Authorization": f"Bearer {os.getenv('GROK_API_KEY')}",
+            "Content-Type": "application/json"
         }
-    
-    def check_rate_limit(self, account_name):
-        now = time.time()
-        account = self.account_limits[account_name]
-        if now < account["last_call"] + account["retry_after"]:
-            wait_time = (account["last_call"] + account["retry_after"]) - now
-            logging.warning(f"{account_name} için Twitter rate limit bekleniyor: {wait_time:.1f} saniye")
-            time.sleep(wait_time)
-        return True
-    
-    def update_rate_limit(self, account_name, headers):
-        if headers and 'x-rate-limit-reset' in headers:
-            reset_time = int(headers['x-rate-limit-reset'])
-            now = time.time()
-            self.account_limits[account_name] = {
-                "last_call": now,
-                "retry_after": max(reset_time - now, 15)
-            }
-
-class SoliumBot:
-    def __init__(self):
-        self.rate_limit_handler = TwitterRateLimitHandler()
-        self.twitter_clients = self.initialize_twitter_clients()
-        self.scheduler = BackgroundScheduler(timezone="UTC")
-        
-    def initialize_twitter_clients(self):
-        clients = {}
-        accounts = ["X", "X2", "X3"]
-        
-        for account in accounts:
-            if not os.getenv(f"{account}_API_KEY"):
-                logging.error(f"{account} için API anahtarı eksik")
-                continue
-            try:
-                clients[account] = tweepy.Client(
-                    consumer_key=os.getenv(f"{account}_API_KEY"),
-                    consumer_secret=os.getenv(f"{account}_SECRET_KEY"),
-                    access_token=os.getenv(f"{account}_ACCESS_TOKEN"),
-                    access_token_secret=os.getenv(f"{account}_ACCESS_SECRET"),
-                    wait_on_rate_limit=False
-                )
-                logging.info(f"{account} Twitter istemcisi başarıyla başlatıldı")
-            except Exception as e:
-                logging.error(f"{account} Twitter istemcisi başlatılamadı: {e}")
-        
-        if not clients:
-            raise Exception("Hiçbir Twitter istemcisi başlatılamadı")
-        return clients
-    
-    def get_fallback_tweet(self, account_name):
+        prompt = (
+            "Generate a unique, engaging English tweet for SoliumCoin that starts with 'soliumcoin.com', "
+            "invites people to join the presale, emphasizes Web3's future, and avoids exaggerated promises "
+            "(e.g., no 'get rich quick' claims). Use a calm, persuasive tone like 'Web3's future is here, "
+            "don't miss out!' or 'Join us, or we're one person short!'. End with 'Follow @soliumcoin'. "
+            "Do not include hashtags in the content, they will be added separately. Keep it under 240 characters."
+        )
+        response = requests.post(
+            "https://api.x.ai/v1/grok/generate",
+            headers=headers,
+            json={"prompt": prompt}
+        )
+        response.raise_for_status()
+        tweet = response.json().get("text", "").strip()
+        # Hashtag ekle
         selected_hashtags = random.sample(HASHTAGS, 3)
-        tweet = f"visit soliumcoin.com Presale started 🚀 Join Web3! Hurry up! 💸 Don’t miss our presale! 🎉 Follow @soliumcoin 📌 {' '.join(selected_hashtags)}"
-        logging.info(f"{account_name} için tweet içeriği ({len(tweet)} karakter): {tweet}")
+        tweet = f"{tweet} {' '.join(selected_hashtags)}"
+        if len(tweet) > 280:
+            tweet = tweet[:277] + "..."  # Twitter karakter limiti
         return tweet
-    
-    def post_tweet(self, account_name):
-        if account_name not in self.twitter_clients:
-            logging.error(f"{account_name} için Twitter istemcisi bulunamadı")
-            return False
+    except Exception as e:
+        logging.error(f"Grok tweet üretimi hatası: {e}")
+        return (
+            "visit soliumcoin.com Join the Web3! Presale Started.future with our presale! Be part of something big. Follow @soliumcoin "
+            + " ".join(random.sample(HASHTAGS, 3))
+        )
+
+# Tweet gönder
+def post_tweet(account_name, client):
+    try:
+        # Kimlik doğrulama testi
+        me = client.get_me()
+        logging.info(f"{account_name} kimlik doğrulama başarılı, kullanıcı: {me.data.username}")
         
-        self.rate_limit_handler.check_rate_limit(account_name)
-        logging.info(f"{account_name} için tweet gönderimi başlatılıyor...")
-        tweet_text = self.get_fallback_tweet(account_name)
-        
-        try:
-            logging.info(f"{account_name} için Twitter API çağrısı yapılıyor...")
-            response = self.twitter_clients[account_name].create_tweet(text=tweet_text)
-            tweet_id = response.data['id']
-            logging.info(f"{account_name} tweet gönderildi (ID: {tweet_id}): {tweet_text[:50]}...")
-            return True
-        
-        except tweepy.TooManyRequests as e:
-            headers = getattr(e, 'response', None).headers if hasattr(e, 'response') else {}
-            app_limit_remaining = headers.get('x-app-limit-24hour-remaining', 'N/A')
-            user_limit_remaining = headers.get('x-user-limit-24hour-remaining', 'N/A')
-            wait_time = 5760  # 96 dakika
-            if app_limit_remaining == '0' or user_limit_remaining == '0':
-                reset_time = int(headers.get('x-app-limit-24hour-reset', time.time() + 7200))
-                logging.warning(
-                    f"{account_name} için Twitter 24 saatlik kota doldu (App: {app_limit_remaining}, User: {user_limit_remaining}), "
-                    f"{wait_time:.1f} saniye bekleniyor (sıfırlama: {datetime.fromtimestamp(reset_time, tz=ZoneInfo('Europe/Istanbul'))}): {e}"
-                )
-            else:
-                reset_time = int(headers.get('x-rate-limit-reset', time.time() + 5760))
-                logging.warning(
-                    f"{account_name} için Twitter API rate limit aşıldı, {wait_time:.1f} saniye bekleniyor: {e}, "
-                    f"Headers: {headers}"
-                )
-            time.sleep(wait_time)
-            return False
-        except tweepy.errors.Forbidden as e:
-            logging.error(
-                f"{account_name} yetki hatası (403 Forbidden), Twitter Developer Portal’da Read/Write izinlerini kontrol et. "
-                f"Tweet içeriği: {tweet_text}, Hata: {e}"
-            )
-            time.sleep(5760)
-            return False
-        except Exception as e:
-            logging.error(
-                f"{account_name} tweet gönderim hatası, Tweet içeriği: {tweet_text}, Hata: {e}"
-            )
-            time.sleep(5760)
-            return False
-    
-    def schedule_tweets(self):
-        interval = 5760  # 96 dakika
-        for account_name in self.twitter_clients.keys():
-            self.scheduler.add_job(
-                self.post_tweet,
-                'interval',
-                seconds=interval,
-                args=[account_name],
-                id=f"tweet_job_{account_name}",
-                misfire_grace_time=300,
-                coalesce=True
-            )
-            logging.info(f"{account_name} için 96 dakikalık tweet zamanlayıcısı ayarlandı")
-        self.scheduler.start()
-        logging.info("Tüm zamanlayıcılar başlatıldı")
-    
-    def run_initial_tweets(self):
-        logging.info("Başlangıç tweetleri gönderiliyor...")
-        for account_name in self.twitter_clients.keys():
-            logging.info(f"{account_name} için başlangıç tweet işlemi başlatılıyor...")
-            if self.post_tweet(account_name):
-                logging.info(f"{account_name} başlangıç tweeti başarıyla gönderildi")
-            else:
-                logging.warning(f"{account_name} başlangıç tweeti gönderilemedi, 96 dakika sonra tekrar denenecek")
-            logging.info(f"{account_name} işlemi tamamlandı, bir sonraki hesaba geçiliyor")
-            time.sleep(5)  # Hesaplar arasında 5 saniye bekle
-    
-    def start(self):
-        logging.info("Solium Bot başlatılıyor...")
-        self.run_initial_tweets()
-        self.schedule_tweets()
-        try:
-            while True:
-                time.sleep(60)
-        except KeyboardInterrupt:
-            logging.info("Bot durduruluyor...")
-            self.scheduler.shutdown()
-        except Exception as e:
-            logging.error(f"Beklenmeyen hata: {e}")
-            self.scheduler.shutdown()
+        # Tweet içeriği üret
+        tweet_text = generate_tweet_content()
+        response = client.create_tweet(text=tweet_text)
+        logging.info(f"{account_name} tweet gönderildi, ID: {response.data['id']}, Tweet: {tweet_text}")
+    except Exception as e:
+        logging.error(f"{account_name} tweet gönderim hatası: {e}")
+
+# Tweet zamanlama
+def schedule_tweets():
+    scheduler = BackgroundScheduler(timezone="UTC")
+    for account_name, client in clients.items():
+        scheduler.add_job(
+            post_tweet,
+            'interval',
+            seconds=5760,  # 96 dk, 15 tweet/gün
+            args=[account_name, client],
+            id=f"tweet_job_{account_name}",
+            jitter=300  # 5 dk rastgele gecikme
+        )
+    scheduler.start()
+
+def main():
+    logging.info("Solium Bot başlatılıyor...")
+    for account_name, client in clients.items():
+        post_tweet(account_name, client)
+    schedule_tweets()
+    try:
+        while True:
+            time.sleep(60)
+    except KeyboardInterrupt:
+        logging.info("Bot durduruldu")
 
 if __name__ == "__main__":
     try:
-        bot = SoliumBot()
-        bot.start()
+        main()
     except Exception as e:
         logging.error(f"Ölümcül hata: {e}")
