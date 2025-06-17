@@ -121,7 +121,7 @@ def schedule_tweets():
     scheduler.add_job(
         post_tweet,
         'interval',
-        seconds=10800,  # 180 dk, ~8 tweet/gün
+        seconds=5000,  # 90 dk, ~16 tweet/gün
         id="tweet_job_X3",
         jitter=300  # 5 dk rastgele gecikme
     )
